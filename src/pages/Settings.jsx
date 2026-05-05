@@ -1,6 +1,17 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+
 import { motion, AnimatePresence } from 'framer-motion';
-import { listenTables, addTable, deleteTable, updateTable, listenSystemSettings, updateSystemSettings } from '../firebase/queueService';
+import { 
+  listenTables, 
+  addTable, 
+  deleteTable, 
+  updateTable, 
+  listenSystemSettings, 
+  updateSystemSettings,
+  uploadAudioFile,
+  listenAudioFiles
+} from '../firebase/queueService';
+
 
 import { 
   PlusIcon, 
@@ -15,19 +26,44 @@ import {
   XMarkIcon,
   CheckCircleIcon,
   ListBulletIcon,
-  Squares2X2Icon
+  Squares2X2Icon,
+  SpeakerWaveIcon,
+  ArrowUpTrayIcon,
+  PlayIcon,
+  ExclamationCircleIcon
 } from '@heroicons/react/24/outline';
+
 
 
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
+
+// ── Audio slot definitions ────────────────────────────────────────────────────
+const PHRASE_SLOTS = [
+  { key: 'phrase_invite',  label: 'เชิญหมายเลข',         hint: 'ประโยคเปิด เช่น "เชิญหมายเลข"' },
+  { key: 'letter_q',      label: 'Q (คิว)',                hint: 'เสียงอ่านตัวอักษร "Q" หรือ "คิว"' },
+  { key: 'letter_c',      label: 'C (ซี)',                 hint: 'เสียงอ่านตัวอักษร "C" หรือ "ซี"' },
+  { key: 'letter_t',      label: 'T (ที)',                 hint: 'เสียงอ่านตัวอักษร "T" หรือ "ที"' },
+  { key: 'phrase_counter', label: 'ที่ช่องบริการ',         hint: 'ประโยคกลาง เช่น "ที่ช่องบริการ"' },
+  { key: 'phrase_end',     label: 'ลงท้าย (ค่ะ / ครับ)',  hint: 'คำลงท้าย เช่น "ค่ะ" หรือ "ครับ"' },
+];
+const DIGIT_SLOTS = [0,1,2,3,4,5,6,7,8,9].map(n => ({
+  key: `digit_${n}`,
+  label: `${n}`,
+  hint: `เสียงอ่านตัวเลข "${n}"`,
+}));
+
 
 export default function Settings() {
   const [tables, setTables] = useState([]);
   const [showModal, setShowModal] = useState(false);
   const [editingTable, setEditingTable] = useState(null);
   const [formData, setFormData] = useState({ tableNumber: '', type: 'CASH', note: '' });
-  const [systemSettings, setSystemSettings] = useState({ assignmentMode: 'immediate' });
+  const [systemSettings, setSystemSettings] = useState({ assignmentMode: 'immediate', numberingMode: 'unified' });
+  const [audioFiles, setAudioFiles] = useState({});
+  const [uploading, setUploading] = useState({}); // { [slot]: progress 0-100 }
+  const fileInputRefs = useRef({});
+
 
   
   const navigate = useNavigate();
@@ -35,11 +71,14 @@ export default function Settings() {
   useEffect(() => {
     const unsubTables = listenTables(setTables);
     const unsubSettings = listenSystemSettings(setSystemSettings);
+    const unsubAudio = listenAudioFiles(setAudioFiles);
     return () => {
       unsubTables();
       unsubSettings();
+      unsubAudio();
     };
   }, []);
+
 
 
   const handleSubmit = async (e) => {
@@ -236,13 +275,101 @@ export default function Settings() {
           </div>
         </section>
 
+        {/* Audio Files Section */}
+        <section className="bg-white rounded-[2.5rem] p-8 md:p-10 border border-slate-100 shadow-sm">
+          <div className="flex items-center justify-between mb-8">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 bg-violet-100 rounded-2xl flex items-center justify-center text-violet-600">
+                <SpeakerWaveIcon className="w-7 h-7" />
+              </div>
+              <div>
+                <h2 className="text-xl md:text-2xl font-black text-slate-800">ไฟล์เสียงประกาศคิว</h2>
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">อัปโหลดไฟล์เสียงสำหรับแต่ละส่วนของประกาศ</p>
+              </div>
+            </div>
+            <div className="hidden md:block px-4 py-2 bg-slate-50 rounded-xl border border-slate-100">
+              <span className="text-xs font-black text-slate-500">
+                {Object.keys(audioFiles).length} / {PHRASE_SLOTS.length + DIGIT_SLOTS.length} ไฟล์
+              </span>
+            </div>
+          </div>
+
+          <div className="space-y-10">
+            {/* Phrases & Letters */}
+            <div>
+              <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 px-1">ประโยคและตัวอักษร</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {PHRASE_SLOTS.map(slot => (
+                  <AudioSlotCard 
+                    key={slot.key} 
+                    slot={slot} 
+                    audioFiles={audioFiles} 
+                    uploading={uploading} 
+                    testPlay={testPlay} 
+                    onUpload={handleAudioUpload} 
+                    fileInputRefs={fileInputRefs} 
+                  />
+                ))}
+              </div>
+            </div>
+
+            {/* Digits */}
+            <div>
+              <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 px-1">ตัวเลข 0 – 9</h3>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
+                {DIGIT_SLOTS.map(slot => (
+                  <div key={slot.key} className={`flex flex-col items-center gap-3 p-5 rounded-[2rem] border-2 transition-all ${
+                    audioFiles[slot.key] ? 'border-emerald-200 bg-emerald-50/30' : 'border-slate-50 bg-slate-50/30'
+                  }`}>
+                    <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-2xl font-black ${
+                      audioFiles[slot.key] ? 'bg-emerald-100 text-emerald-700' : 'bg-white text-slate-300 shadow-sm'
+                    }`}>
+                      {slot.label}
+                    </div>
+                    
+                    <div className="flex gap-2">
+                      {audioFiles[slot.key] && (
+                        <button 
+                          onClick={() => testPlay(audioFiles[slot.key])} 
+                          className="p-2 text-emerald-600 hover:bg-emerald-100 rounded-xl transition-all"
+                        >
+                          <PlayIcon className="w-5 h-5" />
+                        </button>
+                      )}
+                      <button
+                        onClick={() => fileInputRefs.current[slot.key]?.click()}
+                        className={`p-2 rounded-xl transition-all ${
+                          uploading[slot.key] !== undefined ? 'bg-slate-200 text-slate-400' : 'bg-slate-900 text-white hover:bg-black'
+                        }`}
+                      >
+                        <ArrowUpTrayIcon className="w-5 h-5" />
+                      </button>
+                      <input
+                        ref={el => fileInputRefs.current[slot.key] = el}
+                        type="file"
+                        accept="audio/*"
+                        className="hidden"
+                        onChange={e => { handleAudioUpload(slot.key, e.target.files[0]); e.target.value = ''; }}
+                      />
+                    </div>
+                    {uploading[slot.key] !== undefined && (
+                      <div className="w-full h-1 bg-slate-100 rounded-full overflow-hidden">
+                        <div className="h-full bg-blue-500 transition-all" style={{ width: `${uploading[slot.key]}%` }} />
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </section>
 
         <div className="border-t border-slate-100 pt-12">
+
           <div className="flex items-center justify-between mb-8">
             <div>
               <h2 className="text-xl md:text-2xl font-black text-slate-800">จัดการโต๊ะบริการ</h2>
               <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">เพิ่มหรือแก้ไขรายละเอียดของแต่ละช่องบริการ</p>
-            </div>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
 
@@ -408,3 +535,60 @@ export default function Settings() {
     </div>
   );
 }
+
+function AudioSlotCard({ slot, audioFiles, uploading, testPlay, onUpload, fileInputRefs }) {
+  const isUploading = slot.key in uploading;
+  const progress = uploading[slot.key] ?? 0;
+  const hasFile = !!audioFiles[slot.key];
+
+  return (
+    <div className={`flex items-center gap-4 p-4 rounded-3xl border-2 transition-all ${
+      hasFile ? 'border-emerald-200 bg-emerald-50/30' : 'border-slate-50 bg-slate-50/30'
+    }`}>
+      <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 ${
+        hasFile ? 'bg-emerald-100 text-emerald-600' : 'bg-white text-slate-300 shadow-sm'
+      }`}>
+        {hasFile ? <CheckCircleIcon className="w-7 h-7" /> : <SpeakerWaveIcon className="w-7 h-7" />}
+      </div>
+
+      <div className="flex-1 min-w-0">
+        <p className="font-black text-slate-700 text-sm">{slot.label}</p>
+        <p className="text-[10px] font-bold text-slate-400 truncate">{slot.hint}</p>
+        {isUploading && (
+          <div className="mt-2 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+            <div className="h-full bg-blue-500 transition-all duration-200" style={{ width: `${progress}%` }} />
+          </div>
+        )}
+      </div>
+
+      <div className="flex items-center gap-2 shrink-0">
+        {hasFile && !isUploading && (
+          <button
+            onClick={() => testPlay(audioFiles[slot.key])}
+            className="p-2.5 text-emerald-600 hover:bg-emerald-100 rounded-xl transition-all"
+          >
+            <PlayIcon className="w-6 h-6" />
+          </button>
+        )}
+        <button
+          disabled={isUploading}
+          onClick={() => fileInputRefs.current[slot.key]?.click()}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-black text-xs transition-all ${
+            isUploading ? 'bg-slate-100 text-slate-400' : 'bg-slate-900 text-white hover:bg-black active:scale-95'
+          }`}
+        >
+          <ArrowUpTrayIcon className="w-4 h-4" />
+          {isUploading ? `${progress}%` : (hasFile ? 'เปลี่ยน' : 'อัปโหลด')}
+        </button>
+        <input
+          ref={el => fileInputRefs.current[slot.key] = el}
+          type="file"
+          accept="audio/*"
+          className="hidden"
+          onChange={e => { onUpload(slot.key, e.target.files[0]); e.target.value = ''; }}
+        />
+      </div>
+    </div>
+  );
+}
+

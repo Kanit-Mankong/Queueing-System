@@ -8,12 +8,11 @@ import {
   reorderPlaylistItems,
   setCurrentVideoState,
   listenDashboardSettings,
-  uploadAudioFile,
-  listenAudioFiles,
   toggleVideoVisibility,
   updateVideoAspect,
   updateVideoNote
 } from '../firebase/queueService';
+
 import { 
   PlusIcon, 
   TrashIcon, 
@@ -32,67 +31,25 @@ import {
 } from '@heroicons/react/24/outline';
 import { Link } from 'react-router-dom';
 
-// ── Audio slot definitions ────────────────────────────────────────────────────
-const PHRASE_SLOTS = [
-  { key: 'phrase_invite',  label: 'เชิญหมายเลข',         hint: 'ประโยคเปิด เช่น "เชิญหมายเลข"' },
-  { key: 'letter_q',      label: 'Q (คิว)',                hint: 'เสียงอ่านตัวอักษร "Q" หรือ "คิว"' },
-  { key: 'phrase_counter', label: 'ที่ช่องบริการ',         hint: 'ประโยคกลาง เช่น "ที่ช่องบริการ"' },
-  { key: 'phrase_end',     label: 'ลงท้าย (ค่ะ / ครับ)',  hint: 'คำลงท้าย เช่น "ค่ะ" หรือ "ครับ"' },
-];
-const DIGIT_SLOTS = [0,1,2,3,4,5,6,7,8,9].map(n => ({
-  key: `digit_${n}`,
-  label: `${n}`,
-  hint: `เสียงอ่านตัวเลข "${n}"`,
-}));
+
+
 
 // ── Component ─────────────────────────────────────────────────────────────────
 export default function PlaylistManager() {
   const [playlist, setPlaylist] = useState([]);
   const [settings, setSettings] = useState({ currentVideoIndex: 0 });
-  const [audioFiles, setAudioFiles] = useState({});
-  const [uploading, setUploading] = useState({}); // { [slot]: progress 0-100 }
   const [newVideoUrl, setNewVideoUrl] = useState('');
-  const fileInputRefs = useRef({});
+
 
   useEffect(() => {
     const unsubPlaylist = listenPlaylist(setPlaylist);
     const unsubSettings = listenDashboardSettings(setSettings);
-    const unsubAudio = listenAudioFiles(setAudioFiles);
-    return () => { unsubPlaylist(); unsubSettings(); unsubAudio(); };
+    return () => { unsubPlaylist(); unsubSettings(); };
   }, []);
 
-  // ── Audio upload handler ──────────────────────────────────────────────────
-  const handleAudioUpload = async (slot, file) => {
-    if (!file) return;
-    const allowed = ['audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/ogg', 'audio/mp4', 'audio/aac'];
-    if (!allowed.includes(file.type) && !file.name.match(/\.(mp3|wav|ogg|m4a|aac)$/i)) {
-      toast.error('รองรับเฉพาะไฟล์เสียง (MP3, WAV, OGG, AAC)');
-      return;
-    }
-    if (file.size > 500 * 1024) {
-      toast.error('ไฟล์ใหญ่เกินไป (สูงสุด 500KB)');
-      return;
-    }
-    setUploading(prev => ({ ...prev, [slot]: 0 }));
-    try {
-      await uploadAudioFile(file, slot, (progress) => {
-        setUploading(prev => ({ ...prev, [slot]: Math.round(progress) }));
-      });
-      setUploading(prev => { const n = { ...prev }; delete n[slot]; return n; });
-      toast.success('อัปโหลดไฟล์เสียงเรียบร้อยแล้ว ✓', {
-        style: { borderRadius: '1.5rem', background: '#0f172a', color: '#fff' }
-      });
-    } catch (err) {
-      console.error(err);
-      setUploading(prev => { const n = { ...prev }; delete n[slot]; return n; });
-      toast.error('อัปโหลดล้มเหลว กรุณาลองใหม่');
-    }
-  };
 
-  const testPlay = (url) => {
-    const audio = new Audio(url);
-    audio.play().catch(() => toast.error('ไม่สามารถเล่นไฟล์เสียงนี้ได้'));
-  };
+
+
 
   // ── Playlist helpers ──────────────────────────────────────────────────────
   const handleAdd = async () => {
@@ -140,77 +97,11 @@ export default function PlaylistManager() {
     });
   };
 
-  // ── Audio slot card ───────────────────────────────────────────────────────
-  const AudioSlot = ({ slot }) => {
-    const isUploading = slot.key in uploading;
-    const progress = uploading[slot.key] ?? 0;
-    const hasFile = !!audioFiles[slot.key];
 
-    return (
-      <div className={`flex items-center gap-4 p-4 rounded-2xl border-2 transition-all ${
-        hasFile ? 'border-emerald-200 bg-emerald-50/50' : 'border-slate-100 bg-slate-50/50'
-      }`}>
-        {/* Status icon */}
-        <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
-          hasFile ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-100 text-slate-400'
-        }`}>
-          {hasFile
-            ? <CheckCircleIcon className="w-6 h-6" />
-            : <ExclamationCircleIcon className="w-6 h-6" />
-          }
-        </div>
 
-        {/* Label */}
-        <div className="flex-1 min-w-0">
-          <p className="font-black text-slate-700 text-sm">{slot.label}</p>
-          <p className="text-[10px] text-slate-400 truncate">{slot.hint}</p>
-          {isUploading && (
-            <div className="mt-1.5 h-1.5 bg-slate-200 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-blue-500 rounded-full transition-all duration-200"
-                style={{ width: `${progress}%` }}
-              />
-            </div>
-          )}
-        </div>
 
-        {/* Actions */}
-        <div className="flex items-center gap-2 shrink-0">
-          {hasFile && !isUploading && (
-            <button
-              onClick={() => testPlay(audioFiles[slot.key])}
-              className="p-2 text-emerald-600 hover:bg-emerald-100 rounded-xl transition-all"
-              title="ทดสอบเล่น"
-            >
-              <PlayIcon className="w-5 h-5" />
-            </button>
-          )}
-          <button
-            disabled={isUploading}
-            onClick={() => fileInputRefs.current[slot.key]?.click()}
-            className={`flex items-center gap-1.5 px-3 py-2 rounded-xl font-bold text-xs transition-all ${
-              isUploading
-                ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
-                : 'bg-blue-600 text-white hover:bg-blue-700 active:scale-95'
-            }`}
-          >
-            <ArrowUpTrayIcon className="w-4 h-4" />
-            {isUploading ? `${progress}%` : (hasFile ? 'เปลี่ยน' : 'อัปโหลด')}
-          </button>
-          <input
-            ref={el => fileInputRefs.current[slot.key] = el}
-            type="file"
-            accept="audio/*"
-            className="hidden"
-            onChange={e => { handleAudioUpload(slot.key, e.target.files[0]); e.target.value = ''; }}
-          />
-        </div>
-      </div>
-    );
-  };
 
-  const uploadedCount = [...PHRASE_SLOTS, ...DIGIT_SLOTS].filter(s => audioFiles[s.key]).length;
-  const totalSlots = PHRASE_SLOTS.length + DIGIT_SLOTS.length;
+
 
   return (
     <div className="min-h-screen bg-slate-50 font-['Sarabun'] p-4 md:p-8">
