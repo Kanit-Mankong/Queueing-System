@@ -13,8 +13,11 @@ import {
   AdjustmentsHorizontalIcon,
   PencilIcon,
   XMarkIcon,
-  CheckCircleIcon
+  CheckCircleIcon,
+  ListBulletIcon,
+  Squares2X2Icon
 } from '@heroicons/react/24/outline';
+
 
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
@@ -99,6 +102,16 @@ export default function Settings() {
     }
   };
 
+  const handleToggleNumberingMode = async (mode) => {
+    try {
+      await updateSystemSettings({ numberingMode: mode });
+      toast.success(`เปลี่ยนรูปแบบเลขคิวเป็น: ${mode === 'unified' ? 'เลขชุดเดียว (Q)' : 'แยกตามประเภท (C/T)'}`);
+    } catch (err) {
+      toast.error('ไม่สามารถเปลี่ยนรูปแบบเลขคิวได้');
+    }
+  };
+
+
 
   return (
     <div className="min-h-screen bg-slate-50 font-['Sarabun'] flex flex-col">
@@ -175,6 +188,54 @@ export default function Settings() {
             </button>
           </div>
         </section>
+
+        {/* Queue Numbering Mode Section */}
+        <section className="bg-white rounded-[2.5rem] p-8 md:p-10 border border-slate-100 shadow-sm">
+          <div className="flex items-center gap-4 mb-8">
+            <div className="w-12 h-12 bg-amber-100 rounded-2xl flex items-center justify-center text-amber-600">
+              <ListBulletIcon className="w-7 h-7" />
+            </div>
+            <div>
+              <h2 className="text-xl md:text-2xl font-black text-slate-800">รูปแบบการรันเลขคิว</h2>
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">เลือกรูปแบบตัวอักษรนำหน้าเลขคิว</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <button 
+              onClick={() => handleToggleNumberingMode('unified')}
+              className={`p-6 rounded-3xl border-2 text-left transition-all relative overflow-hidden group ${systemSettings.numberingMode === 'unified' || !systemSettings.numberingMode ? 'border-amber-500 bg-amber-50/30' : 'border-slate-100 hover:border-slate-200'}`}
+            >
+              <div className="flex items-center justify-between mb-4">
+                <div className={`p-3 rounded-xl ${systemSettings.numberingMode === 'unified' || !systemSettings.numberingMode ? 'bg-amber-500 text-white' : 'bg-slate-100 text-slate-400 group-hover:bg-slate-200'}`}>
+                  <ListBulletIcon className="w-6 h-6" />
+                </div>
+                {(systemSettings.numberingMode === 'unified' || !systemSettings.numberingMode) && (
+                  <CheckCircleIcon className="w-6 h-6 text-amber-500" />
+                )}
+              </div>
+              <h3 className={`font-black text-lg mb-1 ${systemSettings.numberingMode === 'unified' || !systemSettings.numberingMode ? 'text-amber-900' : 'text-slate-700'}`}>เลขชุดเดียว (Unified)</h3>
+              <p className="text-sm text-slate-500 font-medium">ทุกประเภทใช้ตัว Q นำหน้าเหมือนกันหมด (Q001, Q002...)</p>
+            </button>
+
+            <button 
+              onClick={() => handleToggleNumberingMode('separated')}
+              className={`p-6 rounded-3xl border-2 text-left transition-all relative overflow-hidden group ${systemSettings.numberingMode === 'separated' ? 'border-amber-500 bg-amber-50/30' : 'border-slate-100 hover:border-slate-200'}`}
+            >
+              <div className="flex items-center justify-between mb-4">
+                <div className={`p-3 rounded-xl ${systemSettings.numberingMode === 'separated' ? 'bg-amber-500 text-white' : 'bg-slate-100 text-slate-400 group-hover:bg-slate-200'}`}>
+                  <Squares2X2Icon className="w-6 h-6" />
+                </div>
+                {systemSettings.numberingMode === 'separated' && (
+                  <CheckCircleIcon className="w-6 h-6 text-amber-500" />
+                )}
+              </div>
+              <h3 className={`font-black text-lg mb-1 ${systemSettings.numberingMode === 'separated' ? 'text-amber-900' : 'text-slate-700'}`}>แยกตามประเภท (Separated)</h3>
+              <p className="text-sm text-slate-500 font-medium">เงินสดใช้ C, เงินโอนใช้ T (C001, T001...) เลขรันแยกกัน</p>
+            </button>
+          </div>
+        </section>
+
 
         <div className="border-t border-slate-100 pt-12">
           <div className="flex items-center justify-between mb-8">

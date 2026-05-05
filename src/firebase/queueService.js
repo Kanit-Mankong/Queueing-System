@@ -60,21 +60,40 @@ export const uploadVideo = (file, onProgress) => {
 };
 
 // ── Generate next queue number ────────────────────────────────────────────────
-export async function generateQueueNumber() {
-  // We only care about the very last created ticket to get the sequence
-  const q = query(queuesRef, orderBy('createdAt', 'desc'), limit(1));
+export async function generateQueueNumber(paymentType) {
+  // Fetch current system settings to check numbering mode
+  const settingsSnap = await getDoc(systemSettingsRef);
+  const settings = settingsSnap.exists() ? settingsSnap.data() : { numberingMode: 'unified' };
+  
+  const type = paymentType?.toString().toUpperCase().trim();
+  let prefix = 'Q'; // Default prefix
+
+  let q;
+  if (settings.numberingMode === 'separated') {
+    prefix = (type === 'CASH') ? 'C' : 'T';
+    // Query only queues of THIS specific payment type
+    q = query(
+      queuesRef, 
+      where('paymentType', '==', type),
+      orderBy('createdAt', 'desc'), 
+      limit(1)
+    );
+  } else {
+    // Unified mode: Query the very last created ticket regardless of type
+    q = query(queuesRef, orderBy('createdAt', 'desc'), limit(1));
+  }
+
   const snapshot = await getDocs(q);
 
-  if (snapshot.empty) return 'Q001';
+  if (snapshot.empty) return `${prefix}001`;
 
-  const lastNumber = snapshot.docs[0].data().number || 'Q000';
+  const lastNumber = snapshot.docs[0].data().number || `${prefix}000`;
   let letter = lastNumber[0];
   let num    = parseInt(lastNumber.slice(1), 10);
 
-  // Force start at Q001 if we encounter old A-prefix data
-  if (letter < 'Q') {
-    letter = 'Q';
-    num = 0;
+  // If the numbering mode just changed, the last letter might not match the current prefix
+  if (settings.numberingMode === 'separated' && letter !== prefix) {
+    return `${prefix}001`;
   }
 
   if (num >= 999) {
@@ -84,11 +103,12 @@ export async function generateQueueNumber() {
   return `${letter}${String(num + 1).padStart(3, '0')}`;
 }
 
+
 export async function requestQueue(paymentType) {
-  const number = await generateQueueNumber();
+  const type = paymentType?.toString().toUpperCase().trim();
+  const number = await generateQueueNumber(type);
   let assignedTable = 0; // 0 means unassigned (for on-call mode)
 
-  const type = paymentType?.toString().toUpperCase().trim();
 
   // Fetch current system settings
   const settingsSnap = await getDoc(systemSettingsRef);
