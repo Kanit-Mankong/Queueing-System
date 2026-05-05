@@ -45,7 +45,8 @@ const playPop = () => {
 export default function Kiosk() {
   const [loading, setLoading] = useState(false);
   const [ticket, setTicket] = useState(null);
-  const [countdown, setCountdown] = useState(15);
+  const [countdown, setCountdown] = useState(8);
+
   const [isPrinting, setIsPrinting] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [printConfig, setPrintConfig] = useState(() => {
@@ -124,7 +125,8 @@ export default function Kiosk() {
     try {
       const newTicket = await requestQueue(paymentType);
       setTicket(newTicket);
-      setCountdown(10); // Faster return to home
+      setCountdown(8); // Faster return to home
+
     } catch (err) {
       console.error(err);
       toast.error('เกิดข้อผิดพลาดในการรับคิว');
@@ -214,8 +216,9 @@ export default function Kiosk() {
 
   const reset = () => {
     setTicket(null);
-    setCountdown(10);
+    setCountdown(8);
   };
+
 
   return (
     <div 
