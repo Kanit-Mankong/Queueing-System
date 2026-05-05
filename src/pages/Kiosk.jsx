@@ -158,8 +158,9 @@ export default function Kiosk() {
             if(sPrinter.printOriginalText) sPrinter.printOriginalText(ticket.number + '\n');
             
             if(sPrinter.setFontSize) sPrinter.setFontSize(Math.floor(24 * scale));
-            const tableText = ticket.assignedTable === 0 ? 'รอประกาศเลขโต๊ะ' : `ช่อง: ${ticket.assignedTable}`;
-            if(sPrinter.printOriginalText) sPrinter.printOriginalText(`${tableText} | ${typeLabel}\n`);
+            const tableText = ticket.assignedTable === 0 ? '' : `ช่อง: ${ticket.assignedTable} | `;
+            if(sPrinter.printOriginalText) sPrinter.printOriginalText(`${tableText}${typeLabel}\n`);
+
 
             
             if(sPrinter.setFontSize) sPrinter.setFontSize(Math.floor(20 * scale));
@@ -174,14 +175,15 @@ export default function Kiosk() {
           }
         } else if (window.Android && window.Android.print) {
             // Generic Android Print Bridge
-            const tableText = ticket.assignedTable === 0 ? 'รอประกาศเลขโต๊ะ' : `ช่อง: ${ticket.assignedTable}`;
-            const printStr = `บัตรคิว / QUEUE\n${ticket.number}\n${tableText} | ${typeLabel}\n${dateStr}\n`;
+            const tableText = ticket.assignedTable === 0 ? '' : `ช่อง: ${ticket.assignedTable} | `;
+            const printStr = `บัตรคิว / QUEUE\n${ticket.number}\n${tableText}${typeLabel}\n${dateStr}\n`;
             window.Android.print(printStr);
         } else if (window.PrintInterface && window.PrintInterface.print) {
             // Another common generic bridge
-            const tableText = ticket.assignedTable === 0 ? 'รอประกาศเลขโต๊ะ' : `ช่อง: ${ticket.assignedTable}`;
-            const printStr = `บัตรคิว / QUEUE\n${ticket.number}\n${tableText} | ${typeLabel}\n${dateStr}\n`;
+            const tableText = ticket.assignedTable === 0 ? '' : `ช่อง: ${ticket.assignedTable} | `;
+            const printStr = `บัตรคิว / QUEUE\n${ticket.number}\n${tableText}${typeLabel}\n${dateStr}\n`;
             window.PrintInterface.print(printStr);
+
 
         } else {
           toast.error("ไม่พบระบบเชื่อมต่อ (กรุณาเปิดผ่านแอป Sunmi Browser หรือใช้แอปที่รองรับ)");
@@ -267,10 +269,15 @@ export default function Kiosk() {
               justifyContent: 'center',
               gap: '3mm'
             }}>
-              <span>{ticket.assignedTable === 0 ? 'รอประกาศเลขโต๊ะ' : `ช่อง: ${ticket.assignedTable}`}</span>
-              <span>|</span>
+              {ticket.assignedTable !== 0 && (
+                <>
+                  <span>ช่อง: {ticket.assignedTable}</span>
+                  <span>|</span>
+                </>
+              )}
               <span>{ticket.paymentType === 'CASH' ? 'เงินสด' : 'เงินโอน'}</span>
             </div>
+
 
             
             <div style={{ fontSize: '5mm', marginTop: '2mm' }}>
@@ -565,8 +572,9 @@ export default function Kiosk() {
                         <div style={{ fontSize: '6mm', marginBottom: '2mm' }}>บัตรคิว / QUEUE</div>
                         <div style={{ fontSize: '26mm', fontWeight: '900', margin: '2mm 0', lineHeight: '1' }}>A001</div>
                         <div style={{ fontSize: '8mm', padding: '4mm 0', borderTop: '1mm solid black', borderBottom: '1mm solid black' }}>
-                          {systemSettings.assignmentMode === 'on-call' ? 'รอประกาศเลขโต๊ะ' : 'ช่อง: 1'} | เงินสด
+                          {systemSettings.assignmentMode === 'on-call' ? '' : 'ช่อง: 1 | '}เงินสด
                         </div>
+
 
                      </div>
                   </div>

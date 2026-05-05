@@ -253,7 +253,8 @@ export default function Settings() {
             <p className="text-xl font-bold italic">ยังไม่มีการตั้งค่าโต๊ะบริการ</p>
           </div>
         )}
-      </main>
+      </div>
+    </main>
 
       {/* Modal */}
       <AnimatePresence>
