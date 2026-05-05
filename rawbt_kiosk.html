@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>P.TECH Queue System (RawBT Optimized)</title>
+    <style>
+        /* --- General Settings --- */
+        * {
+            box-sizing: border-box;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+        }
+
+        body {
+            background-color: #f0f2f5;
+            font-family: Tahoma, Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            display: block; /* Avoid Flex for body */
+        }
+
+        /* --- UI Controls (Not Printed) --- */
+        .no-print {
+            max-width: 500px;
+            margin: 20px auto;
+            padding: 20px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+
+        .btn-group {
+            display: block;
+            margin-top: 20px;
+        }
+
+        .btn {
+            display: block;
+            width: 100%;
+            padding: 15px;
+            margin-bottom: 10px;
+            font-size: 20px;
+            font-weight: bold;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+
+        .btn-blue { background-color: #0056b3; }
+        .btn-green { background-color: #28a745; }
+        .btn-black { background-color: #000000; }
+
+        /* --- Print Area Container --- */
+        #receipt-container {
+            width: 80mm;
+            margin: 20px auto;
+            background: white;
+            padding: 0;
+            border: 1px dashed #ccc; /* Show guide on screen */
+        }
+
+        /* --- Thermal Ticket Style (Core) --- */
+        .ticket {
+            width: 80mm;
+            padding: 5mm;
+            color: #000000; /* Deep Black */
+            background-color: #ffffff;
+            text-align: center;
+            display: block;
+        }
+
+        .org-name {
+            font-size: 5mm;
+            font-weight: 700;
+            text-transform: uppercase;
+            margin-bottom: 2mm;
+            display: block;
+        }
+
+        .title {
+            font-size: 4mm;
+            font-weight: 500;
+            margin-bottom: 5mm;
+            display: block;
+        }
+
+        .queue-number {
+            font-size: 22mm; /* Ultra Big */
+            font-weight: 900;
+            line-height: 1;
+            margin: 5mm 0;
+            display: block;
+        }
+
+        .info-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 5mm 0;
+        }
+
+        .info-table td {
+            font-size: 4.5mm;
+            font-weight: 600;
+            padding: 2mm 0;
+            text-align: center;
+            border-top: 0.5mm solid #000000;
+            border-bottom: 0.5mm solid #000000;
+        }
+
+        .footer {
+            font-size: 3.5mm;
+            font-weight: 500;
+            margin-top: 5mm;
+            display: block;
+        }
+
+        /* --- Canvas Fallback (For Image Printing) --- */
+        #canvas-preview {
+            display: none;
+            width: 80mm;
+            margin: 20px auto;
+            border: 1px solid red;
+        }
+
+        /* --- PRINT STYLES --- */
+        @media print {
+            body { background: white; }
+            .no-print, #canvas-preview { display: none !important; }
+            #receipt-container { 
+                margin: 0 !important; 
+                border: none !important;
+                width: 80mm !important;
+            }
+            .ticket {
+                width: 80mm !important;
+                padding: 5mm 2mm !important;
+            }
+            @page {
+                size: 80mm auto;
+                margin: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="no-print">
+        <h1 style="color:#000; margin:0 0 10px 0;">ระบบจัดการคิว P.TECH</h1>
+        <p>ออกแบบมาสำหรับ SUNMI T2 + RawBT</p>
+        
+        <div class="btn-group">
+            <button class="btn btn-blue" onclick="generateTicket('A', 'การเงิน (CASH)')">รับคิวเงินสด (A)</button>
+            <button class="btn btn-green" onclick="generateTicket('B', 'การเงิน (TRANSFER)')">รับคิวเงินโอน (B)</button>
+        </div>
+
+        <div style="margin-top: 30px; border-top: 1px solid #eee; padding-top: 20px;">
+            <p style="font-size: 14px; color: #666;">โหมดการพิมพ์:</p>
+            <button class="btn btn-black" onclick="printStandard()">1. พิมพ์ปกติ (window.print)</button>
+            <button class="btn btn-black" onclick="printAsImage()" style="background-color: #444;">2. พิมพ์เป็นรูปภาพ (กันตัวอักษรขาด)</button>
+        </div>
+    </div>
+
+    <!-- The Actual Ticket to be printed -->
+    <div id="receipt-container">
+        <div class="ticket" id="ticket-content">
+            <span class="org-name">P.TECH KHON KAEN</span>
+            <span class="title">บัตรคิวผู้รับบริการ</span>
+            
+            <span class="queue-number" id="q-number">A001</span>
+            
+            <table class="info-table">
+                <tr>
+                    <td id="q-type">การเงิน (CASH)</td>
+                </tr>
+            </table>
+
+            <span class="footer">
+                วันที่: <span id="q-date">--/--/----</span><br>
+                เวลา: <span id="q-time">--:--:--</span><br>
+                <br>
+                *** ขอบคุณที่ใช้บริการ ***
+            </span>
+        </div>
+    </div>
+
+    <!-- Hidden Canvas for Image Mode -->
+    <canvas id="print-canvas" style="display:none;"></canvas>
+
+    <script>
+        // --- Data Logic ---
+        let countA = 1;
+        let countB = 1;
+
+        function generateTicket(prefix, type) {
+            const num = (prefix === 'A' ? countA++ : countB++).toString().padStart(3, '0');
+            const fullNumber = prefix + num;
+            
+            document.getElementById('q-number').innerText = fullNumber;
+            document.getElementById('q-type').innerText = type;
+            
+            const now = new Date();
+            document.getElementById('q-date').innerText = now.toLocaleDateString('th-TH');
+            document.getElementById('q-time').innerText = now.toLocaleTimeString('th-TH');
+            
+            // Auto trigger preview for image mode
+            renderToCanvas();
+        }
+
+        // --- Standard Print ---
+        function printStandard() {
+            window.print();
+        }
+
+        // --- Image Print Fallback (The Magic for Thermal) ---
+        function renderToCanvas() {
+            const canvas = document.getElementById('print-canvas');
+            const ctx = canvas.getContext('2d');
+            
+            // Set scale for high resolution (80mm @ 203dpi ≈ 640px)
+            const width = 640;
+            const height = 850;
+            canvas.width = width;
+            canvas.height = height;
+
+            // Fill Background
+            ctx.fillStyle = "#FFFFFF";
+            ctx.fillRect(0, 0, width, height);
+
+            // Set Text Style
+            ctx.fillStyle = "#000000";
+            ctx.textAlign = "center";
+
+            // Draw Content
+            ctx.font = "bold 40px Tahoma";
+            ctx.fillText("P.TECH KHON KAEN", width/2, 80);
+
+            ctx.font = "30px Tahoma";
+            ctx.fillText("บัตรคิวผู้รับบริการ", width/2, 130);
+
+            ctx.font = "bold 180px Arial";
+            ctx.fillText(document.getElementById('q-number').innerText, width/2, 350);
+
+            ctx.fillRect(40, 420, width-80, 4); // Line
+            ctx.font = "bold 40px Tahoma";
+            ctx.fillText(document.getElementById('q-type').innerText, width/2, 480);
+            ctx.fillRect(40, 510, width-80, 4); // Line
+
+            ctx.font = "30px Tahoma";
+            ctx.fillText("วันที่: " + document.getElementById('q-date').innerText, width/2, 600);
+            ctx.fillText("เวลา: " + document.getElementById('q-time').innerText, width/2, 650);
+
+            ctx.font = "italic 25px Tahoma";
+            ctx.fillText("*** ขอบคุณที่ใช้บริการ ***", width/2, 750);
+        }
+
+        function printAsImage() {
+            renderToCanvas();
+            const canvas = document.getElementById('print-canvas');
+            const dataUrl = canvas.toDataURL("image/png");
+            
+            // Create a temporary window to print the image
+            const win = window.open('', '_blank');
+            win.document.write('<html><body style="margin:0;padding:0;text-align:center;">');
+            win.document.write('<img src="' + dataUrl + '" style="width:80mm;">');
+            win.document.write('<script>window.onload = function() { window.print(); window.close(); }<\/script>');
+            win.document.write('</body></html>');
+            win.document.close();
+        }
+
+        // Initialize with default date
+        generateTicket('A', 'การเงิน (CASH)');
+        countA = 1; // Reset after init
+    </script>
+</body>
+</html>

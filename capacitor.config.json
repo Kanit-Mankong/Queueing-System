@@ -1,0 +1,9 @@
+{
+  "appId": "com.ptech.kiosk",
+  "appName": "PTechKiosk",
+  "webDir": "dist",
+  "server": {
+    "url": "https://queueing-system-98dad.web.app/kiosk",
+    "cleartext": true
+  }
+}

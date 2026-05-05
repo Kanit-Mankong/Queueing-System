@@ -1,0 +1,272 @@
+import { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { listenTables, addTable, deleteTable, updateTable } from '../firebase/queueService';
+import { 
+  PlusIcon, 
+  TrashIcon, 
+  ArrowLeftIcon,
+  BanknotesIcon,
+  CreditCardIcon,
+  ChatBubbleBottomCenterTextIcon,
+  HashtagIcon,
+  AdjustmentsHorizontalIcon,
+  PencilIcon,
+  XMarkIcon
+} from '@heroicons/react/24/outline';
+import { useNavigate } from 'react-router-dom';
+import toast from 'react-hot-toast';
+
+export default function Settings() {
+  const [tables, setTables] = useState([]);
+  const [showModal, setShowModal] = useState(false);
+  const [editingTable, setEditingTable] = useState(null);
+  const [formData, setFormData] = useState({ tableNumber: '', type: 'CASH', note: '' });
+  
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    return listenTables(setTables);
+  }, []);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!formData.tableNumber) return toast.error('กรุณาระบุเลขโต๊ะ');
+    
+    try {
+      if (editingTable) {
+        // Update
+        await updateTable(formData.tableNumber, { type: formData.type, note: formData.note });
+        toast.success('อัปเดตข้อมูลเรียบร้อยแล้ว');
+      } else {
+        // Add
+        // Check if table number already exists
+        if (tables.find(t => t.tableNumber === parseInt(formData.tableNumber))) {
+          return toast.error('เลขโต๊ะนี้มีอยู่แล้วในระบบ');
+        }
+        await addTable(formData);
+        toast.success('เพิ่มโต๊ะเรียบร้อยแล้ว');
+      }
+      setShowModal(false);
+      setFormData({ tableNumber: '', type: 'CASH', note: '' });
+      setEditingTable(null);
+    } catch (err) {
+      console.error(err);
+      toast.error('เกิดข้อผิดพลาดในการบันทึกข้อมูล');
+    }
+  };
+
+  const openAdd = () => {
+    setEditingTable(null);
+    setFormData({ tableNumber: '', type: 'CASH', note: '' });
+    setShowModal(true);
+  };
+
+  const openEdit = (table) => {
+    setEditingTable(table);
+    setFormData({ tableNumber: table.tableNumber, type: table.type, note: table.note });
+    setShowModal(true);
+  };
+
+  const handleDelete = async (tableNumber) => {
+    if (window.confirm(`ยืนยันการลบโต๊ะที่ ${tableNumber}?`)) {
+      try {
+        await deleteTable(tableNumber);
+        toast.success('ลบโต๊ะเรียบร้อยแล้ว');
+      } catch (err) {
+        console.error(err);
+        toast.error('เกิดข้อผิดพลาดในการลบโต๊ะ');
+      }
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-slate-50 font-['Sarabun'] flex flex-col">
+      {/* Header */}
+      <header className="bg-white border-b border-slate-200 px-6 py-4 md:px-10 flex items-center justify-between sticky top-0 z-20">
+        <div className="flex items-center gap-4">
+          <button 
+            onClick={() => navigate('/')}
+            className="p-2 hover:bg-slate-100 rounded-xl transition-colors text-slate-500"
+          >
+            <ArrowLeftIcon className="w-6 h-6" />
+          </button>
+          <div>
+            <h1 className="text-xl md:text-2xl font-black text-slate-800">ตั้งค่าระบบ</h1>
+            <p className="text-[10px] md:text-xs font-bold text-slate-400 uppercase tracking-widest">จัดการช่องบริการและโต๊ะคิดเงิน</p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 md:gap-4">
+          <button 
+            onClick={openAdd}
+            className="bg-blue-600 text-white px-4 py-2 md:px-6 md:py-3 rounded-2xl font-black flex items-center gap-2 hover:bg-blue-700 transition-all shadow-lg shadow-blue-200 active:scale-95"
+          >
+            <PlusIcon className="w-5 h-5" />
+            <span className="hidden md:inline">เพิ่มโต๊ะบริการ</span>
+          </button>
+        </div>
+      </header>
+
+      <main className="flex-1 p-6 md:p-10 max-w-6xl mx-auto w-full">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <AnimatePresence>
+            {tables.map((table) => (
+              <motion.div
+                key={table.id}
+                layout
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.9 }}
+                className="bg-white rounded-[2.5rem] p-8 border border-slate-100 shadow-sm hover:shadow-xl transition-all group relative overflow-hidden"
+              >
+                {/* Background Accent */}
+                <div className={`absolute top-0 right-0 w-32 h-32 translate-x-16 -translate-y-16 rounded-full blur-3xl opacity-10 ${table.type === 'CASH' ? 'bg-emerald-500' : 'bg-blue-500'}`} />
+
+                <div className="flex items-center justify-between mb-6">
+                  <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-white shadow-lg ${table.type === 'CASH' ? 'bg-emerald-500' : 'bg-blue-500'}`}>
+                    {table.type === 'CASH' ? <BanknotesIcon className="w-8 h-8" /> : <CreditCardIcon className="w-8 h-8" />}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button 
+                      onClick={() => openEdit(table)}
+                      className="p-3 text-slate-300 hover:text-blue-500 hover:bg-blue-50 hover:rounded-xl transition-all"
+                    >
+                      <PencilIcon className="w-6 h-6" />
+                    </button>
+                    <button 
+                      onClick={() => handleDelete(table.tableNumber)}
+                      className="p-3 text-slate-300 hover:text-rose-500 hover:bg-rose-50 hover:rounded-xl transition-all"
+                    >
+                      <TrashIcon className="w-6 h-6" />
+                    </button>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2">
+                    <HashtagIcon className="w-5 h-5 text-slate-400" />
+                    <span className="text-sm font-black text-slate-400 uppercase tracking-widest">ช่องบริการที่</span>
+                    <span className="text-2xl font-black text-slate-800">{table.tableNumber}</span>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <AdjustmentsHorizontalIcon className="w-5 h-5 text-slate-400" />
+                    <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${table.type === 'CASH' ? 'bg-emerald-100 text-emerald-600' : 'bg-blue-100 text-blue-600'}`}>
+                      {table.type === 'CASH' ? 'เงินสด (Cash)' : 'เงินโอน (Transfer)'}
+                    </span>
+                  </div>
+
+                  {table.note && (
+                    <div className="flex items-start gap-2 pt-2 border-t border-slate-50 mt-4">
+                      <ChatBubbleBottomCenterTextIcon className="w-5 h-5 text-slate-400 mt-1 shrink-0" />
+                      <div>
+                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">หมายเหตุ / โน๊ต</span>
+                        <p className="text-slate-600 font-medium leading-relaxed">{table.note}</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            ))}
+          </AnimatePresence>
+        </div>
+
+        {tables.length === 0 && (
+          <div className="flex flex-col items-center justify-center py-20 text-slate-300">
+            <AdjustmentsHorizontalIcon className="w-20 h-20 opacity-20 mb-4" />
+            <p className="text-xl font-bold italic">ยังไม่มีการตั้งค่าโต๊ะบริการ</p>
+          </div>
+        )}
+      </main>
+
+      {/* Modal */}
+      <AnimatePresence>
+        {showModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-6">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowModal(false)}
+              className="absolute inset-0 bg-slate-900/40 backdrop-blur-md"
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="bg-white rounded-[3rem] w-full max-w-lg p-10 relative z-10 shadow-2xl"
+            >
+              <h2 className="text-3xl font-black text-slate-800 mb-8">
+                {editingTable ? `แก้ไขโต๊ะที่ ${editingTable.tableNumber}` : 'เพิ่มโต๊ะบริการใหม่'}
+              </h2>
+              
+              <form onSubmit={handleSubmit} className="space-y-6">
+                <div>
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2 px-1">เลขโต๊ะ / ช่องบริการ</label>
+                  <input 
+                    type="number" 
+                    value={formData.tableNumber}
+                    onChange={(e) => setFormData({ ...formData, tableNumber: e.target.value })}
+                    disabled={!!editingTable}
+                    className="w-full bg-slate-50 border-none rounded-2xl p-4 font-bold text-slate-800 focus:ring-2 focus:ring-blue-500/20 transition-all disabled:opacity-50"
+                    placeholder="เช่น 1, 2, 3"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2 px-1">ประเภทการรับชำระ</label>
+                  <div className="grid grid-cols-2 gap-4">
+                    <button
+                      type="button"
+                      onClick={() => setFormData({ ...formData, type: 'CASH' })}
+                      className={`p-4 rounded-2xl border-2 flex flex-col items-center gap-2 transition-all ${formData.type === 'CASH' ? 'border-emerald-500 bg-emerald-50 text-emerald-600' : 'border-slate-100 text-slate-400 hover:border-slate-200'}`}
+                    >
+                      <BanknotesIcon className="w-8 h-8" />
+                      <span className="font-black text-xs uppercase">เงินสด</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setFormData({ ...formData, type: 'TRANSFER' })}
+                      className={`p-4 rounded-2xl border-2 flex flex-col items-center gap-2 transition-all ${formData.type === 'TRANSFER' ? 'border-blue-500 bg-blue-50 text-blue-600' : 'border-slate-100 text-slate-400 hover:border-slate-200'}`}
+                    >
+                      <CreditCardIcon className="w-8 h-8" />
+                      <span className="font-black text-xs uppercase">เงินโอน</span>
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2 px-1">โน๊ต / หมายเหตุ</label>
+                  <textarea 
+                    value={formData.note}
+                    onChange={(e) => setFormData({ ...formData, note: e.target.value })}
+                    className="w-full bg-slate-50 border-none rounded-2xl p-4 font-medium text-slate-600 focus:ring-2 focus:ring-blue-500/20 transition-all h-24"
+                    placeholder="เช่น โต๊ะหน้าเคาน์เตอร์, ประตูทางเข้า..."
+                  />
+                </div>
+
+                <div className="flex gap-4 pt-4">
+                  <button 
+                    type="button"
+                    onClick={() => setShowModal(false)}
+                    className="flex-1 py-4 font-black text-slate-400 hover:text-slate-600 transition-colors"
+                  >
+                    ยกเลิก
+                  </button>
+                  <button 
+                    type="submit"
+                    className="flex-1 bg-slate-900 text-white py-4 rounded-2xl font-black hover:bg-black transition-all shadow-xl shadow-slate-900/20 active:scale-95"
+                  >
+                    บันทึกข้อมูล
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+    </div>
+  );
+}

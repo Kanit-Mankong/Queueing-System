@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">PTechKiosk</string>
+    <string name="title_activity_main">PTechKiosk</string>
+    <string name="package_name">com.ptech.kiosk</string>
+    <string name="custom_url_scheme">com.ptech.kiosk</string>
+</resources>
