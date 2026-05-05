@@ -1,7 +1,8 @@
 // src/pages/Kiosk.jsx
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { requestQueue } from '../firebase/queueService';
+import { requestQueue, listenSystemSettings } from '../firebase/queueService';
+
 import { 
   BanknotesIcon, 
   CreditCardIcon, 
@@ -55,6 +56,8 @@ export default function Kiosk() {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showExitModal, setShowExitModal] = useState(false);
   const [exitPassword, setExitPassword] = useState('');
+  const [systemSettings, setSystemSettings] = useState({ assignmentMode: 'immediate' });
+
 
   const updateConfig = (key, value) => {
     const newConfig = { ...printConfig, [key]: value };
@@ -66,8 +69,15 @@ export default function Kiosk() {
   useEffect(() => {
     const handleFullscreenChange = () => setIsFullscreen(!!document.fullscreenElement);
     document.addEventListener('fullscreenchange', handleFullscreenChange);
-    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+    };
   }, []);
+
+  useEffect(() => {
+    return listenSystemSettings(setSystemSettings);
+  }, []);
+
 
   const toggleFullscreen = () => {
     if (!isFullscreen) {
@@ -148,7 +158,9 @@ export default function Kiosk() {
             if(sPrinter.printOriginalText) sPrinter.printOriginalText(ticket.number + '\n');
             
             if(sPrinter.setFontSize) sPrinter.setFontSize(Math.floor(24 * scale));
-            if(sPrinter.printOriginalText) sPrinter.printOriginalText(`ช่อง: ${ticket.assignedTable} | ${typeLabel}\n`);
+            const tableText = ticket.assignedTable === 0 ? 'รอประกาศเลขโต๊ะ' : `ช่อง: ${ticket.assignedTable}`;
+            if(sPrinter.printOriginalText) sPrinter.printOriginalText(`${tableText} | ${typeLabel}\n`);
+
             
             if(sPrinter.setFontSize) sPrinter.setFontSize(Math.floor(20 * scale));
             if(sPrinter.printOriginalText) sPrinter.printOriginalText(dateStr + '\n');
@@ -162,12 +174,15 @@ export default function Kiosk() {
           }
         } else if (window.Android && window.Android.print) {
             // Generic Android Print Bridge
-            const printStr = `บัตรคิว / QUEUE\n${ticket.number}\nช่อง: ${ticket.assignedTable} | ${typeLabel}\n${dateStr}\n`;
+            const tableText = ticket.assignedTable === 0 ? 'รอประกาศเลขโต๊ะ' : `ช่อง: ${ticket.assignedTable}`;
+            const printStr = `บัตรคิว / QUEUE\n${ticket.number}\n${tableText} | ${typeLabel}\n${dateStr}\n`;
             window.Android.print(printStr);
         } else if (window.PrintInterface && window.PrintInterface.print) {
             // Another common generic bridge
-            const printStr = `บัตรคิว / QUEUE\n${ticket.number}\nช่อง: ${ticket.assignedTable} | ${typeLabel}\n${dateStr}\n`;
+            const tableText = ticket.assignedTable === 0 ? 'รอประกาศเลขโต๊ะ' : `ช่อง: ${ticket.assignedTable}`;
+            const printStr = `บัตรคิว / QUEUE\n${ticket.number}\n${tableText} | ${typeLabel}\n${dateStr}\n`;
             window.PrintInterface.print(printStr);
+
         } else {
           toast.error("ไม่พบระบบเชื่อมต่อ (กรุณาเปิดผ่านแอป Sunmi Browser หรือใช้แอปที่รองรับ)");
         }
@@ -252,10 +267,11 @@ export default function Kiosk() {
               justifyContent: 'center',
               gap: '3mm'
             }}>
-              <span>ช่อง: {ticket.assignedTable}</span>
+              <span>{ticket.assignedTable === 0 ? 'รอประกาศเลขโต๊ะ' : `ช่อง: ${ticket.assignedTable}`}</span>
               <span>|</span>
               <span>{ticket.paymentType === 'CASH' ? 'เงินสด' : 'เงินโอน'}</span>
             </div>
+
             
             <div style={{ fontSize: '5mm', marginTop: '2mm' }}>
               {new Date().toLocaleString('th-TH', { 
@@ -348,10 +364,15 @@ export default function Kiosk() {
                   
                   <div className="flex flex-col items-center gap-4 mb-12">
                     <div className="px-8 py-3 bg-white/10 rounded-2xl border border-white/10">
-                      <p className="text-slate-400 font-bold uppercase tracking-widest text-xs mb-1">โต๊ะที่ได้รับมอบหมาย</p>
-                      <p className="text-3xl font-black text-white">ช่องบริการ {ticket.assignedTable}</p>
+                      <p className="text-slate-400 font-bold uppercase tracking-widest text-xs mb-1">
+                        {ticket.assignedTable === 0 ? 'สถานะการมอบหมาย' : 'โต๊ะที่ได้รับมอบหมาย'}
+                      </p>
+                      <p className="text-3xl font-black text-white">
+                        {ticket.assignedTable === 0 ? 'กรุณารอประกาศเลขโต๊ะ' : `ช่องบริการ ${ticket.assignedTable}`}
+                      </p>
                     </div>
                   </div>
+
 
                   <div className="flex flex-col sm:flex-row gap-4 justify-center">
                     <button 
@@ -543,7 +564,10 @@ export default function Kiosk() {
                      }}>
                         <div style={{ fontSize: '6mm', marginBottom: '2mm' }}>บัตรคิว / QUEUE</div>
                         <div style={{ fontSize: '26mm', fontWeight: '900', margin: '2mm 0', lineHeight: '1' }}>A001</div>
-                        <div style={{ fontSize: '8mm', padding: '4mm 0', borderTop: '1mm solid black', borderBottom: '1mm solid black' }}>ช่อง: 1 | เงินสด</div>
+                        <div style={{ fontSize: '8mm', padding: '4mm 0', borderTop: '1mm solid black', borderBottom: '1mm solid black' }}>
+                          {systemSettings.assignmentMode === 'on-call' ? 'รอประกาศเลขโต๊ะ' : 'ช่อง: 1'} | เงินสด
+                        </div>
+
                      </div>
                   </div>
                 </div>

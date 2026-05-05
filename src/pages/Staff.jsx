@@ -9,8 +9,10 @@ import {
   skipQueue, 
   completeQueue,
   recallSkipped,
-  recallQueue
+  recallQueue,
+  listenSystemSettings
 } from '../firebase/queueService';
+
 import { toast } from 'react-hot-toast';
 import { 
   PlayIcon, 
@@ -26,6 +28,8 @@ export default function Staff() {
   const [selectedTable, setSelectedTable] = useState(null);
   const [queues, setQueues] = useState([]);
   const [tables, setTables] = useState([]);
+  const [systemSettings, setSystemSettings] = useState({ assignmentMode: 'immediate' });
+
 
   useEffect(() => {
     // Force Dark Theme for Staff Portal
@@ -34,14 +38,29 @@ export default function Staff() {
   }, []);
 
   useEffect(() => {
-    return listenTables(setTables);
+    const unsubTables = listenTables(setTables);
+    const unsubSettings = listenSystemSettings(setSystemSettings);
+    return () => {
+      unsubTables();
+      unsubSettings();
+    };
   }, []);
+
 
   useEffect(() => {
     if (!selectedTable) return;
-    const unsubQ = listenQueuesForTable(selectedTable, setQueues);
+    const tableData = tables.find(t => t.tableNumber === selectedTable);
+    if (!tableData) return;
+
+    const unsubQ = listenQueuesForTable(
+      selectedTable, 
+      tableData.type, 
+      systemSettings.assignmentMode, 
+      setQueues
+    );
     return () => unsubQ();
-  }, [selectedTable]);
+  }, [selectedTable, tables, systemSettings.assignmentMode]);
+
 
   if (!selectedTable) {
     return (

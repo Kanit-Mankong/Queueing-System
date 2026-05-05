@@ -27,6 +27,8 @@ import { db, storage } from './config';
 export const queuesRef = collection(db, 'queues');
 export const tablesRef = collection(db, 'tables');
 export const logsRef   = collection(db, 'logs');
+export const systemSettingsRef = doc(db, 'settings', 'system');
+
 
 // ── Faculty mappings ─────────────────────────────────────────────────────────
 export const FACULTY_LABELS = {
@@ -84,44 +86,48 @@ export async function generateQueueNumber() {
 
 export async function requestQueue(paymentType) {
   const number = await generateQueueNumber();
-  let assignedTable = 1; // Default fallback
+  let assignedTable = 0; // 0 means unassigned (for on-call mode)
 
   const type = paymentType?.toString().toUpperCase().trim();
 
-  // Fetch all tables to find the best match
-  const tablesSnap = await getDocs(tablesRef);
-  const tables = tablesSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-  
-  // Filter tables by requested payment type
-  const availableTables = tables.filter(t => t.type === type);
-  
-  if (availableTables.length > 0) {
-    const today = new Date();
-    today.setHours(0,0,0,0);
+  // Fetch current system settings
+  const settingsSnap = await getDoc(systemSettingsRef);
+  const settings = settingsSnap.exists() ? settingsSnap.data() : { assignmentMode: 'immediate' };
 
-    // Logic to find table with least waiting/called queues
-    const counts = await Promise.all(availableTables.map(async (t) => {
-      const q = query(
-        queuesRef, 
-        where('assignedTable', '==', t.tableNumber)
-      );
-      const snap = await getDocs(q);
-      
-      const activeToday = snap.docs.filter(doc => {
-        const data = doc.data();
-        const isToday = !data.createdAt || data.createdAt.toDate() >= today;
-        const isActive = data.status === 'waiting' || data.status === 'called';
-        return isToday && isActive;
-      });
-
-      return { table: t.tableNumber, count: activeToday.length };
-    }));
+  if (settings.assignmentMode === 'immediate') {
+    // Original Logic: Fetch all tables to find the best match
+    const tablesSnap = await getDocs(tablesRef);
+    const tables = tablesSnap.docs.map(d => ({ id: d.id, ...d.data() }));
     
-    const bestTable = counts.reduce((prev, curr) => prev.count <= curr.count ? prev : curr);
-    assignedTable = bestTable.table;
-  } else if (tables.length > 0) {
-    // If no specific table for type exists, use the first available table as fallback
-    assignedTable = tables[0].tableNumber;
+    // Filter tables by requested payment type
+    const availableTables = tables.filter(t => t.type === type);
+    
+    if (availableTables.length > 0) {
+      const today = new Date();
+      today.setHours(0,0,0,0);
+
+      const counts = await Promise.all(availableTables.map(async (t) => {
+        const q = query(
+          queuesRef, 
+          where('assignedTable', '==', t.tableNumber)
+        );
+        const snap = await getDocs(q);
+        
+        const activeToday = snap.docs.filter(doc => {
+          const data = doc.data();
+          const isToday = !data.createdAt || data.createdAt.toDate() >= today;
+          const isActive = data.status === 'waiting' || data.status === 'called';
+          return isToday && isActive;
+        });
+
+        return { table: t.tableNumber, count: activeToday.length };
+      }));
+      
+      const bestTable = counts.reduce((prev, curr) => prev.count <= curr.count ? prev : curr);
+      assignedTable = bestTable.table;
+    } else if (tables.length > 0) {
+      assignedTable = tables[0].tableNumber;
+    }
   }
 
   const docRef = await addDoc(queuesRef, {
@@ -134,6 +140,7 @@ export async function requestQueue(paymentType) {
   
   return { id: docRef.id, number, assignedTable, paymentType: type };
 }
+
 
 // ── Reset all queues ─────────────────────────────────────────────────────────
 export async function resetQueues() {
@@ -191,12 +198,22 @@ export function listenAllQueues(callback) {
 }
 
 /** Listen to queues for a specific table (used by Staff page) */
-export function listenQueuesForTable(tableNumber, callback) {
-  // Simplified query to avoid composite index requirement
-  const q = query(
-    queuesRef, 
-    where('assignedTable', '==', parseInt(tableNumber))
-  );
+export function listenQueuesForTable(tableNumber, paymentType, assignmentMode, callback) {
+  let q;
+  
+  if (assignmentMode === 'on-call') {
+    // In on-call mode, look for queues of the same type that are EITHER unassigned OR assigned to THIS table
+    q = query(
+      queuesRef,
+      where('paymentType', '==', paymentType)
+    );
+  } else {
+    // In immediate mode, only look for queues specifically assigned to this table
+    q = query(
+      queuesRef, 
+      where('assignedTable', '==', parseInt(tableNumber))
+    );
+  }
   
   return onSnapshot(q, (snap) => {
     const all = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
@@ -204,11 +221,20 @@ export function listenQueuesForTable(tableNumber, callback) {
     const today = new Date();
     today.setHours(0,0,0,0);
 
-    // Filter by date and sort by time in JS
+    // Filter by date and status in JS
     const filtered = all.filter(item => {
       const isNew = item.number && item.number >= 'Q';
-      if (!item.createdAt) return isNew;
-      return isNew && item.createdAt.toDate() >= today;
+      const itemDate = item.createdAt?.toDate() || new Date();
+      const isToday = itemDate >= today;
+      
+      if (assignmentMode === 'on-call') {
+        // Show if waiting and unassigned OR if it's already assigned/called at this table
+        const isWaitingUnassigned = item.status === 'waiting' && (item.assignedTable === 0 || !item.assignedTable);
+        const isMyActiveQueue = item.assignedTable === parseInt(tableNumber);
+        return isNew && isToday && (isWaitingUnassigned || isMyActiveQueue);
+      }
+      
+      return isNew && isToday;
     });
     
     // Sort by createdAt ascending (oldest first for the queue)
@@ -221,6 +247,7 @@ export function listenQueuesForTable(tableNumber, callback) {
     callback(sorted);
   });
 }
+
 
 /** Listen to ALL queues (used for history/reporting) */
 export function listenFullHistory(callback) {
@@ -471,6 +498,22 @@ export function listenAudioFiles(callback) {
   });
 }
 
+/** Listen to System Settings (Assignment Mode, etc.) */
+export function listenSystemSettings(callback) {
+  return onSnapshot(systemSettingsRef, (snap) => {
+    if (snap.exists()) {
+      callback(snap.data());
+    } else {
+      callback({ assignmentMode: 'immediate' });
+    }
+  });
+}
+
+/** Update System Settings */
+export async function updateSystemSettings(updates) {
+  await setDoc(systemSettingsRef, updates, { merge: true });
+}
+
 async function writeLog(action, queueId, tableNumber) {
   await addDoc(logsRef, {
     action,
@@ -479,3 +522,4 @@ async function writeLog(action, queueId, tableNumber) {
     timestamp: serverTimestamp(),
   });
 }
+

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { listenTables, addTable, deleteTable, updateTable } from '../firebase/queueService';
+import { listenTables, addTable, deleteTable, updateTable, listenSystemSettings, updateSystemSettings } from '../firebase/queueService';
+
 import { 
   PlusIcon, 
   TrashIcon, 
@@ -11,8 +12,10 @@ import {
   HashtagIcon,
   AdjustmentsHorizontalIcon,
   PencilIcon,
-  XMarkIcon
+  XMarkIcon,
+  CheckCircleIcon
 } from '@heroicons/react/24/outline';
+
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 
@@ -21,12 +24,20 @@ export default function Settings() {
   const [showModal, setShowModal] = useState(false);
   const [editingTable, setEditingTable] = useState(null);
   const [formData, setFormData] = useState({ tableNumber: '', type: 'CASH', note: '' });
+  const [systemSettings, setSystemSettings] = useState({ assignmentMode: 'immediate' });
+
   
   const navigate = useNavigate();
 
   useEffect(() => {
-    return listenTables(setTables);
+    const unsubTables = listenTables(setTables);
+    const unsubSettings = listenSystemSettings(setSystemSettings);
+    return () => {
+      unsubTables();
+      unsubSettings();
+    };
   }, []);
+
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -79,6 +90,16 @@ export default function Settings() {
     }
   };
 
+  const handleToggleMode = async (mode) => {
+    try {
+      await updateSystemSettings({ assignmentMode: mode });
+      toast.success(`เปลี่ยนโหมดเป็น: ${mode === 'immediate' ? 'จัดสรรทันที' : 'จัดสรรเมื่อเรียก'}`);
+    } catch (err) {
+      toast.error('ไม่สามารถเปลี่ยนโหมดได้');
+    }
+  };
+
+
   return (
     <div className="min-h-screen bg-slate-50 font-['Sarabun'] flex flex-col">
       {/* Header */}
@@ -107,8 +128,63 @@ export default function Settings() {
         </div>
       </header>
 
-      <main className="flex-1 p-6 md:p-10 max-w-6xl mx-auto w-full">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <main className="flex-1 p-6 md:p-10 max-w-6xl mx-auto w-full space-y-12">
+        {/* System Settings Section */}
+        <section className="bg-white rounded-[2.5rem] p-8 md:p-10 border border-slate-100 shadow-sm">
+          <div className="flex items-center gap-4 mb-8">
+            <div className="w-12 h-12 bg-indigo-100 rounded-2xl flex items-center justify-center text-indigo-600">
+              <AdjustmentsHorizontalIcon className="w-7 h-7" />
+            </div>
+            <div>
+              <h2 className="text-xl md:text-2xl font-black text-slate-800">โหมดการจัดสรรคิว</h2>
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">เลือกวิธีการมอบหมายโต๊ะบริการให้กับลูกค้า</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <button 
+              onClick={() => handleToggleMode('immediate')}
+              className={`p-6 rounded-3xl border-2 text-left transition-all relative overflow-hidden group ${systemSettings.assignmentMode === 'immediate' ? 'border-indigo-500 bg-indigo-50/30' : 'border-slate-100 hover:border-slate-200'}`}
+            >
+              <div className="flex items-center justify-between mb-4">
+                <div className={`p-3 rounded-xl ${systemSettings.assignmentMode === 'immediate' ? 'bg-indigo-500 text-white' : 'bg-slate-100 text-slate-400 group-hover:bg-slate-200'}`}>
+                  <HashtagIcon className="w-6 h-6" />
+                </div>
+                {systemSettings.assignmentMode === 'immediate' && (
+                  <CheckCircleIcon className="w-6 h-6 text-indigo-500" />
+                )}
+              </div>
+              <h3 className={`font-black text-lg mb-1 ${systemSettings.assignmentMode === 'immediate' ? 'text-indigo-900' : 'text-slate-700'}`}>จัดสรรทันที (Immediate)</h3>
+              <p className="text-sm text-slate-500 font-medium">ลูกค้ารู้เลขโต๊ะทันทีบนบัตรคิว ระบบจะคำนวณคิวที่ว่างที่สุดให้</p>
+            </button>
+
+            <button 
+              onClick={() => handleToggleMode('on-call')}
+              className={`p-6 rounded-3xl border-2 text-left transition-all relative overflow-hidden group ${systemSettings.assignmentMode === 'on-call' ? 'border-indigo-500 bg-indigo-50/30' : 'border-slate-100 hover:border-slate-200'}`}
+            >
+              <div className="flex items-center justify-between mb-4">
+                <div className={`p-3 rounded-xl ${systemSettings.assignmentMode === 'on-call' ? 'bg-indigo-500 text-white' : 'bg-slate-100 text-slate-400 group-hover:bg-slate-200'}`}>
+                  <ChatBubbleBottomCenterTextIcon className="w-6 h-6" />
+                </div>
+                {systemSettings.assignmentMode === 'on-call' && (
+                  <CheckCircleIcon className="w-6 h-6 text-indigo-500" />
+                )}
+              </div>
+              <h3 className={`font-black text-lg mb-1 ${systemSettings.assignmentMode === 'on-call' ? 'text-indigo-900' : 'text-slate-700'}`}>จัดสรรเมื่อเรียก (On-Call)</h3>
+              <p className="text-sm text-slate-500 font-medium">คิวจะถูกจัดสรรเข้าโต๊ะก็ต่อเมื่อพนักงานกดเรียก ช่วยลดปัญหาคิวข้าม</p>
+            </button>
+          </div>
+        </section>
+
+        <div className="border-t border-slate-100 pt-12">
+          <div className="flex items-center justify-between mb-8">
+            <div>
+              <h2 className="text-xl md:text-2xl font-black text-slate-800">จัดการโต๊ะบริการ</h2>
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">เพิ่มหรือแก้ไขรายละเอียดของแต่ละช่องบริการ</p>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+
           <AnimatePresence>
             {tables.map((table) => (
               <motion.div
