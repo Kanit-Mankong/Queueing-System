@@ -30,7 +30,8 @@ import {
   SpeakerWaveIcon,
   ArrowUpTrayIcon,
   PlayIcon,
-  ExclamationCircleIcon
+  ExclamationCircleIcon,
+  PrinterIcon
 } from '@heroicons/react/24/outline';
 
 
@@ -62,6 +63,10 @@ export default function Settings() {
   const [systemSettings, setSystemSettings] = useState({ assignmentMode: 'immediate', numberingMode: 'unified' });
   const [audioFiles, setAudioFiles] = useState({});
   const [uploading, setUploading] = useState({}); // { [slot]: progress 0-100 }
+  const [printConfig, setPrintConfig] = useState(() => {
+    const saved = localStorage.getItem('printConfig');
+    return saved ? JSON.parse(saved) : { mode: 'standard', paper: '80', scale: 100 };
+  });
   const fileInputRefs = useRef({});
 
 
@@ -148,6 +153,13 @@ export default function Settings() {
     } catch (err) {
       toast.error('ไม่สามารถเปลี่ยนรูปแบบเลขคิวได้');
     }
+  };
+
+  const updatePrintConfig = (key, value) => {
+    const newConfig = { ...printConfig, [key]: value };
+    setPrintConfig(newConfig);
+    localStorage.setItem('printConfig', JSON.stringify(newConfig));
+    toast.success('อัปเดตการตั้งค่าเครื่องพิมพ์แล้ว');
   };
 
 
@@ -359,6 +371,101 @@ export default function Settings() {
                     )}
                   </div>
                 ))}
+              </div>
+            </div>
+          </div>
+        {/* Print Settings Section */}
+        <section className="bg-white rounded-[2.5rem] p-8 md:p-10 border border-slate-100 shadow-sm">
+          <div className="flex items-center gap-4 mb-8">
+            <div className="w-12 h-12 bg-blue-100 rounded-2xl flex items-center justify-center text-blue-600">
+              <PrinterIcon className="w-7 h-7" />
+            </div>
+            <div>
+              <h2 className="text-xl md:text-2xl font-black text-slate-800">ตั้งค่าเครื่องพิมพ์ (Kiosk)</h2>
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">ตั้งค่ารูปแบบการพิมพ์สำหรับเครื่อง Kiosk บนอุปกรณ์นี้</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
+            <div className="space-y-8">
+              {/* Mode Selection */}
+              <div>
+                <label className="block text-slate-400 font-black mb-4 uppercase tracking-wider text-[10px]">การเชื่อมต่อเครื่องพิมพ์</label>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <button 
+                    onClick={() => updatePrintConfig('mode', 'standard')}
+                    className={`p-4 rounded-2xl border-2 text-left transition-all ${printConfig.mode === 'standard' ? 'border-blue-500 bg-blue-50' : 'border-slate-100 hover:border-slate-200'}`}
+                  >
+                    <div className="font-black text-sm mb-1">Standard</div>
+                    <div className="text-[10px] text-slate-500 font-bold">พิมพ์ผ่านบราวเซอร์</div>
+                  </button>
+                  <button 
+                    onClick={() => updatePrintConfig('mode', 'rawbt')}
+                    className={`p-4 rounded-2xl border-2 text-left transition-all ${printConfig.mode === 'rawbt' ? 'border-emerald-500 bg-emerald-50' : 'border-slate-100 hover:border-slate-200'}`}
+                  >
+                    <div className="font-black text-sm mb-1">RawBT</div>
+                    <div className="text-[10px] text-slate-500 font-bold">แอป Android RawBT</div>
+                  </button>
+                  <button 
+                    onClick={() => updatePrintConfig('mode', 'sunmi')}
+                    className={`p-4 rounded-2xl border-2 text-left transition-all ${printConfig.mode === 'sunmi' ? 'border-orange-500 bg-orange-50' : 'border-slate-100 hover:border-slate-200'}`}
+                  >
+                    <div className="font-black text-sm mb-1">Sunmi</div>
+                    <div className="text-[10px] text-slate-500 font-bold">เครื่อง Sunmi Direct</div>
+                  </button>
+                </div>
+              </div>
+
+              {/* Paper Size & Scale */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
+                <div>
+                  <label className="block text-slate-400 font-black mb-4 uppercase tracking-wider text-[10px]">ขนาดหน้ากระดาษ</label>
+                  <div className="flex bg-slate-100 p-1 rounded-2xl">
+                    <button 
+                      onClick={() => updatePrintConfig('paper', '58')}
+                      className={`flex-1 py-2.5 rounded-xl font-black text-xs transition-all ${printConfig.paper === '58' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                    >
+                      58 mm
+                    </button>
+                    <button 
+                      onClick={() => updatePrintConfig('paper', '80')}
+                      className={`flex-1 py-2.5 rounded-xl font-black text-xs transition-all ${printConfig.paper === '80' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                    >
+                      80 mm
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <div className="flex justify-between mb-3">
+                    <label className="text-slate-400 font-black uppercase tracking-wider text-[10px]">ขนาดการซูม (Scale)</label>
+                    <span className="text-blue-600 font-black text-xs">{printConfig.scale}%</span>
+                  </div>
+                  <input 
+                    type="range" min="50" max="300" step="10"
+                    value={printConfig.scale}
+                    onChange={(e) => updatePrintConfig('scale', parseInt(e.target.value))}
+                    className="w-full accent-blue-600 h-2 bg-slate-100 rounded-lg appearance-none cursor-pointer"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Live Preview */}
+            <div className="bg-slate-50 rounded-[2rem] p-6 border border-slate-100 relative min-h-[250px] flex flex-col items-center justify-start overflow-hidden">
+              <span className="absolute top-4 left-6 text-[10px] font-black text-slate-300 uppercase tracking-[0.2em]">Live Preview</span>
+              <div className="mt-8 bg-white shadow-xl border border-slate-200 overflow-hidden" style={{ 
+                width: printConfig.paper === '80' ? '72mm' : '48mm',
+                padding: '5mm', 
+                textAlign: 'center',
+                zoom: printConfig.scale / 100
+              }}>
+                <div className="text-[6mm] font-black mb-1">บัตรคิว / QUEUE</div>
+                <div className="text-[24mm] font-black leading-none my-2">A001</div>
+                <div className="text-[8mm] font-black py-2 border-y-2 border-slate-900 my-2">
+                  {systemSettings.numberingMode === 'separated' ? 'เงินสด' : 'คิวทั่วไป'}
+                </div>
+                <div className="text-[4mm] font-bold text-slate-500 mt-2">P.TECH Queueing System</div>
               </div>
             </div>
           </div>
