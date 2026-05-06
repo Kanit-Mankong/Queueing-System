@@ -206,7 +206,7 @@ export function listenAllQueues(callback) {
     today.setHours(0,0,0,0);
     
     const filtered = all.filter(item => {
-      const isNew = item.number && item.number >= 'Q';
+      const isNew = item.number && item.number.length >= 4;
       if (!item.createdAt) return isNew; // New items might not have timestamp yet
       const itemDate = item.createdAt.toDate();
       return isNew && itemDate >= today;
@@ -243,7 +243,7 @@ export function listenQueuesForTable(tableNumber, paymentType, assignmentMode, c
 
     // Filter by date and status in JS
     const filtered = all.filter(item => {
-      const isNew = item.number && item.number >= 'Q';
+      const isNew = item.number && item.number.length >= 4;
       const itemDate = item.createdAt?.toDate() || new Date();
       const isToday = itemDate >= today;
       
