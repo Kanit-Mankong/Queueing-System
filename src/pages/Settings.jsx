@@ -162,6 +162,34 @@ export default function Settings() {
     toast.success('อัปเดตการตั้งค่าเครื่องพิมพ์แล้ว');
   };
 
+  const testPlay = (url) => {
+    const audio = new Audio(url);
+    audio.play().catch(e => {
+      console.error("Playback failed:", e);
+      toast.error("ไม่สามารถเล่นไฟล์เสียงได้");
+    });
+  };
+
+  const handleAudioUpload = async (slot, file) => {
+    if (!file) return;
+    setUploading(prev => ({ ...prev, [slot]: 0 }));
+    try {
+      await uploadAudioFile(slot, file, (progress) => {
+        setUploading(prev => ({ ...prev, [slot]: progress }));
+      });
+      toast.success('อัปโหลดไฟล์เสียงเรียบร้อยแล้ว');
+    } catch (err) {
+      console.error(err);
+      toast.error('เกิดข้อผิดพลาดในการอัปโหลด');
+    } finally {
+      setUploading(prev => {
+        const next = { ...prev };
+        delete next[slot];
+        return next;
+      });
+    }
+  };
+
 
 
   return (
