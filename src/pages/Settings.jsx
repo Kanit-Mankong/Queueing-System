@@ -374,6 +374,8 @@ export default function Settings() {
               </div>
             </div>
           </div>
+        </section>
+
         {/* Print Settings Section */}
         <section className="bg-white rounded-[2.5rem] p-8 md:p-10 border border-slate-100 shadow-sm">
           <div className="flex items-center gap-4 mb-8">
