@@ -112,7 +112,7 @@ export default function CompactQueueCard({ tableNumber, currentQueue, previousQu
               <div className="text-[5vmin] md:text-3xl lg:text-4xl font-black tracking-tighter text-slate-300 italic mb-2">
                 พร้อมให้บริการ
               </div>
-              <div className={`text-[10px] md:text-2xl font-black uppercase tracking-widest ${isCash ? 'text-emerald-500' : 'text-blue-500'}`}>
+              <div className="text-[10px] md:text-2xl font-black uppercase tracking-widest text-slate-300">
                 ({isCash ? 'CASH' : 'TRANSFER'})
               </div>
             </motion.div>
