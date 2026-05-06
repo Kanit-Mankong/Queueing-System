@@ -58,23 +58,28 @@ export default function CompactQueueCard({ tableNumber, currentQueue, previousQu
         <h3 className={`text-[16px] md:text-3xl lg:text-4xl font-black tracking-tight whitespace-nowrap ${
           !isIdle ? 'text-white' : 'text-slate-800'
         }`}>
-          ช่องบริการ {tableNumber}
+          ช่อง {tableNumber}
         </h3>
-        {!isIdle && (
-          <motion.div
-            animate={{ 
-              backgroundColor: ['rgba(255,255,255,0.1)', 'rgba(255,255,255,0.3)', 'rgba(255,255,255,0.1)'],
-              scale: [1, 1.05, 1]
-            }}
-            transition={{ repeat: Infinity, duration: 2 }}
-            className="px-2 py-0.5 md:px-3 md:py-1 rounded-full border border-white/30 backdrop-blur-md flex items-center gap-1.5"
-          >
-            <span className="w-1.5 h-1.5 md:w-2 md:h-2 bg-white rounded-full animate-pulse" />
-            <span className="text-[10px] md:text-xl font-black text-white uppercase tracking-widest">
-              {isCash ? 'เงินสด' : 'เงินโอน'}
-            </span>
-          </motion.div>
-        )}
+        
+        <motion.div
+          animate={!isIdle ? { 
+            backgroundColor: ['rgba(255,255,255,0.1)', 'rgba(255,255,255,0.3)', 'rgba(255,255,255,0.1)'],
+            scale: [1, 1.05, 1]
+          } : {}}
+          transition={{ repeat: Infinity, duration: 2 }}
+          className={`px-2 py-0.5 md:px-3 md:py-1 rounded-full border backdrop-blur-md flex items-center gap-1.5 ${
+            !isIdle ? 'border-white/30' : 'border-slate-200 bg-slate-50'
+          }`}
+        >
+          <span className={`w-1.5 h-1.5 md:w-2 md:h-2 rounded-full ${
+            !isIdle ? 'bg-white animate-pulse' : (isCash ? 'bg-emerald-500' : 'bg-blue-500')
+          }`} />
+          <span className={`text-[10px] md:text-xl font-black uppercase tracking-widest ${
+            !isIdle ? 'text-white' : (isCash ? 'text-emerald-600' : 'text-blue-600')
+          }`}>
+            {isCash ? 'เงินสด' : 'เงินโอน'}
+          </span>
+        </motion.div>
       </div>
 
       {/* Main Content */}
@@ -104,8 +109,11 @@ export default function CompactQueueCard({ tableNumber, currentQueue, previousQu
               exit={{ opacity: 0, scale: 1.1, filter: 'blur(4px)' }}
               className="flex flex-col items-center justify-center"
             >
-              <div className="text-[5vmin] md:text-3xl lg:text-4xl font-black tracking-tighter text-slate-300 italic">
+              <div className="text-[5vmin] md:text-3xl lg:text-4xl font-black tracking-tighter text-slate-300 italic mb-2">
                 พร้อมให้บริการ
+              </div>
+              <div className={`text-[10px] md:text-2xl font-black uppercase tracking-widest ${isCash ? 'text-emerald-100/80 bg-emerald-500/10' : 'text-blue-100/80 bg-blue-500/10'} px-4 py-1 rounded-xl`}>
+                ({isCash ? 'CASH' : 'TRANSFER'})
               </div>
             </motion.div>
           )}
