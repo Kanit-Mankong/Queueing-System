@@ -70,6 +70,43 @@ export default function History() {
     return Object.keys(summary).sort((a, b) => a - b);
   }, [summary]);
 
+  const [showRangeModal, setShowRangeModal] = useState(false);
+  const [rangeData, setRangeData] = useState({ prefix: 'ALL', start: '', end: '', password: '' });
+
+  const handleRangeDelete = async (e) => {
+    e.preventDefault();
+    if (rangeData.password !== '1212312121@Abc') return toast.error('รหัสผ่านไม่ถูกต้อง');
+    if (!rangeData.start || !rangeData.end) return toast.error('กรุณาระบุเลขเริ่มต้นและสิ้นสุด');
+
+    const startNum = parseInt(rangeData.start);
+    const endNum = parseInt(rangeData.end);
+
+    const idsToDelete = currentData.filter(q => {
+      const qPrefix = q.number.charAt(0).toUpperCase();
+      const qNum = parseInt(q.number.slice(1));
+      
+      const prefixMatch = rangeData.prefix === 'ALL' || qPrefix === rangeData.prefix;
+      const rangeMatch = qNum >= startNum && qNum <= endNum;
+      
+      return prefixMatch && rangeMatch;
+    }).map(q => q.id);
+
+    if (idsToDelete.length === 0) return toast.error('ไม่พบข้อมูลคิวในช่วงที่ระบุ');
+
+    if (window.confirm(`ยืนยันการลบคิวจำนวน ${idsToDelete.length} รายการ?`)) {
+      const loading = toast.loading('กำลังลบข้อมูล...');
+      try {
+        await deleteQueuesByIds(idsToDelete);
+        toast.success(`ลบข้อมูลสำเร็จ ${idsToDelete.length} รายการ`, { id: loading });
+        setShowRangeModal(false);
+        setRangeData({ prefix: 'ALL', start: '', end: '', password: '' });
+      } catch (err) {
+        console.error(err);
+        toast.error('เกิดข้อผิดพลาด', { id: loading });
+      }
+    }
+  };
+
   const handleReset = async (e) => {
     e.preventDefault();
     if (resetPassword === '1212312121@Abc') {
@@ -176,13 +213,22 @@ export default function History() {
                   <h2 className="text-3xl font-black text-slate-800">ข้อมูลสรุปประจำวันที่ {selectedDate}</h2>
                   <p className="text-slate-500 font-medium">ภาพรวมการให้บริการแยกตามรายช่องบริการ</p>
                 </div>
-                <button 
-                  onClick={() => setShowResetModal(true)}
-                  className="bg-rose-50 text-rose-600 px-6 py-3 rounded-2xl font-black flex items-center gap-2 hover:bg-rose-100 transition-all active:scale-95 border border-rose-100"
-                >
-                  <TrashIcon className="w-5 h-5" />
-                  <span>รีเซ็ตคิวและลบประวัติ</span>
-                </button>
+                <div className="flex gap-2">
+                  <button 
+                    onClick={() => setShowRangeModal(true)}
+                    className="bg-amber-50 text-amber-600 px-6 py-3 rounded-2xl font-black flex items-center gap-2 hover:bg-amber-100 transition-all active:scale-95 border border-amber-100"
+                  >
+                    <TrashIcon className="w-5 h-5" />
+                    <span>ลบคิวระบุช่วง</span>
+                  </button>
+                  <button 
+                    onClick={() => setShowResetModal(true)}
+                    className="bg-rose-50 text-rose-600 px-6 py-3 rounded-2xl font-black flex items-center gap-2 hover:bg-rose-100 transition-all active:scale-95 border border-rose-100"
+                  >
+                    <TrashIcon className="w-5 h-5" />
+                    <span>ลบประวัติทั้งวัน</span>
+                  </button>
+                </div>
               </div>
 
               {/* Summary Cards */}
@@ -294,6 +340,86 @@ export default function History() {
                 </div>
                 <button type="submit" className="w-full bg-rose-500 text-white py-4 rounded-2xl font-black hover:bg-rose-600 transition-all shadow-xl shadow-rose-500/20 active:scale-95">
                   ยืนยันการล้างข้อมูล
+                </button>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+      {/* Range Delete Modal */}
+      <AnimatePresence>
+        {showRangeModal && (
+          <div className="fixed inset-0 z-[110] flex items-center justify-center p-6">
+            <motion.div 
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              onClick={() => setShowRangeModal(false)} className="absolute inset-0 bg-slate-900/60 backdrop-blur-xl"
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="bg-white rounded-[2.5rem] w-full max-w-lg p-10 relative z-10 shadow-2xl text-slate-800"
+            >
+              <button onClick={() => setShowRangeModal(false)} className="absolute top-6 right-6 p-2 text-slate-300 hover:text-slate-500 transition-colors">
+                <XMarkIcon className="w-6 h-6" />
+              </button>
+              <div className="w-16 h-16 bg-amber-100 text-amber-600 rounded-2xl flex items-center justify-center mb-8">
+                <TrashIcon className="w-8 h-8" />
+              </div>
+              <h2 className="text-2xl font-black mb-2">ลบคิวระบุช่วง</h2>
+              <p className="text-slate-500 text-sm font-medium mb-8 leading-relaxed">ระบุประเภทและหมายเลขคิวที่ต้องการลบของวันที่ {selectedDate}</p>
+              
+              <form onSubmit={handleRangeDelete} className="space-y-6">
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="col-span-3 md:col-span-1">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2 px-1">ตัวอักษรนำหน้า</label>
+                    <select 
+                      value={rangeData.prefix}
+                      onChange={(e) => setRangeData({...rangeData, prefix: e.target.value})}
+                      className="w-full bg-slate-50 border-none rounded-2xl p-4 font-bold text-slate-800 focus:ring-2 focus:ring-blue-500/20 transition-all appearance-none"
+                    >
+                      <option value="ALL">ทั้งหมด</option>
+                      <option value="Q">Q (Unified)</option>
+                      <option value="C">C (Cash)</option>
+                      <option value="T">T (Transfer)</option>
+                    </select>
+                  </div>
+                  <div className="col-span-3 md:col-span-1">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2 px-1">ตั้งแต่หมายเลข</label>
+                    <input 
+                      type="number" 
+                      value={rangeData.start}
+                      onChange={(e) => setRangeData({...rangeData, start: e.target.value})}
+                      className="w-full bg-slate-50 border-none rounded-2xl p-4 font-bold text-slate-800 focus:ring-2 focus:ring-blue-500/20 transition-all"
+                      placeholder="เช่น 1"
+                      required
+                    />
+                  </div>
+                  <div className="col-span-3 md:col-span-1">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2 px-1">ถึงหมายเลข</label>
+                    <input 
+                      type="number" 
+                      value={rangeData.end}
+                      onChange={(e) => setRangeData({...rangeData, end: e.target.value})}
+                      className="w-full bg-slate-50 border-none rounded-2xl p-4 font-bold text-slate-800 focus:ring-2 focus:ring-blue-500/20 transition-all"
+                      placeholder="เช่น 10"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2 px-1">รหัสผ่านยืนยัน</label>
+                  <input 
+                    type="password" 
+                    value={rangeData.password}
+                    onChange={(e) => setRangeData({...rangeData, password: e.target.value})}
+                    className="w-full bg-slate-50 border-none rounded-2xl p-4 font-bold text-slate-800 focus:ring-2 focus:ring-blue-500/20 transition-all"
+                    placeholder="รหัสผ่าน..."
+                    required
+                  />
+                </div>
+
+                <button type="submit" className="w-full bg-amber-500 text-white py-4 rounded-2xl font-black hover:bg-amber-600 transition-all shadow-xl shadow-amber-500/20 active:scale-95">
+                  ยืนยันการลบช่วงคิว
                 </button>
               </form>
             </motion.div>
