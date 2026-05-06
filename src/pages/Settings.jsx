@@ -33,7 +33,8 @@ import {
   PlayIcon,
   ExclamationCircleIcon,
   PrinterIcon,
-  TvIcon
+  TvIcon,
+  VideoCameraIcon
 } from '@heroicons/react/24/outline';
 
 
