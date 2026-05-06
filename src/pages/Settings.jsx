@@ -8,8 +8,9 @@ import {
   updateTable, 
   listenSystemSettings, 
   updateSystemSettings,
-  uploadAudioFile,
-  listenAudioFiles
+  listenAudioFiles,
+  listenDashboardSettings,
+  updateDashboardSettings
 } from '../firebase/queueService';
 
 
@@ -31,7 +32,8 @@ import {
   ArrowUpTrayIcon,
   PlayIcon,
   ExclamationCircleIcon,
-  PrinterIcon
+  PrinterIcon,
+  TvIcon
 } from '@heroicons/react/24/outline';
 
 
@@ -63,6 +65,7 @@ export default function Settings() {
   const [systemSettings, setSystemSettings] = useState({ assignmentMode: 'immediate', numberingMode: 'unified' });
   const [audioFiles, setAudioFiles] = useState({});
   const [uploading, setUploading] = useState({}); // { [slot]: progress 0-100 }
+  const [dashboardSettings, setDashboardSettings] = useState({ videoRatio: 55 });
   const [printConfig, setPrintConfig] = useState(() => {
     const saved = localStorage.getItem('printConfig');
     return saved ? JSON.parse(saved) : { mode: 'standard', paper: '80', scale: 100 };
@@ -77,10 +80,16 @@ export default function Settings() {
     const unsubTables = listenTables(setTables);
     const unsubSettings = listenSystemSettings(setSystemSettings);
     const unsubAudio = listenAudioFiles(setAudioFiles);
+    const unsubDash = listenDashboardSettings((data) => {
+      if (data && typeof data.videoRatio === 'number') {
+        setDashboardSettings(prev => ({ ...prev, videoRatio: data.videoRatio }));
+      }
+    });
     return () => {
       unsubTables();
       unsubSettings();
       unsubAudio();
+      unsubDash();
     };
   }, []);
 
@@ -152,6 +161,15 @@ export default function Settings() {
       toast.success(`เปลี่ยนรูปแบบเลขคิวเป็น: ${mode === 'unified' ? 'เลขชุดเดียว (Q)' : 'แยกตามประเภท (C/T)'}`);
     } catch (err) {
       toast.error('ไม่สามารถเปลี่ยนรูปแบบเลขคิวได้');
+    }
+  };
+
+  const handleUpdateDashboardLayout = async (ratio) => {
+    setDashboardSettings(prev => ({ ...prev, videoRatio: ratio }));
+    try {
+      await updateDashboardSettings({ videoRatio: ratio });
+    } catch (err) {
+      toast.error('ไม่สามารถบันทึกการตั้งค่าเลย์เอาต์ได้');
     }
   };
 
@@ -399,6 +417,60 @@ export default function Settings() {
                     )}
                   </div>
                 ))}
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Dashboard Layout Section */}
+        <section className="bg-white rounded-[2.5rem] p-8 md:p-10 border border-slate-100 shadow-sm">
+          <div className="flex items-center gap-4 mb-8">
+            <div className="w-12 h-12 bg-sky-100 rounded-2xl flex items-center justify-center text-sky-600">
+              <TvIcon className="w-7 h-7" />
+            </div>
+            <div>
+              <h2 className="text-xl md:text-2xl font-black text-slate-800">เลย์เอาต์หน้าแดชบอร์ด</h2>
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">ปรับอัตราส่วนระหว่างวิดีโอและรายการเรียกคิว</p>
+            </div>
+          </div>
+
+          <div className="space-y-10">
+            <div className="bg-slate-50 p-8 rounded-[2rem] border border-slate-100">
+              <div className="flex flex-col md:flex-row items-center gap-8">
+                <div className="flex-1 w-full space-y-6">
+                  <div className="flex justify-between items-end">
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">สัดส่วนพื้นที่วิดีโอ : รายการคิว</label>
+                      <div className="flex items-center gap-3">
+                        <span className="text-3xl font-black text-slate-800">{dashboardSettings.videoRatio}</span>
+                        <span className="text-xl font-bold text-slate-300">:</span>
+                        <span className="text-3xl font-black text-slate-500">{100 - dashboardSettings.videoRatio}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="relative pt-6">
+                    <input 
+                      type="range" min="30" max="80" step="1"
+                      value={dashboardSettings.videoRatio}
+                      onChange={(e) => handleUpdateDashboardLayout(parseInt(e.target.value))}
+                      className="w-full accent-sky-600 h-3 bg-slate-200 rounded-full appearance-none cursor-pointer"
+                    />
+                    <div className="flex justify-between mt-4 text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">
+                      <span>เน้นรายการคิว</span>
+                      <span>เน้นวิดีโอ</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="w-full md:w-64 aspect-video bg-white rounded-2xl border-2 border-slate-200 p-2 flex gap-1 shadow-inner overflow-hidden shrink-0">
+                   <div className="h-full bg-slate-100 rounded-lg flex items-center justify-center border border-dashed border-slate-300" style={{ width: `${dashboardSettings.videoRatio}%` }}>
+                     <VideoCameraIcon className="w-6 h-6 text-slate-300" />
+                   </div>
+                   <div className="h-full bg-sky-50 rounded-lg flex items-center justify-center border border-dashed border-sky-200" style={{ width: `${100 - dashboardSettings.videoRatio}%` }}>
+                     <ListBulletIcon className="w-6 h-6 text-sky-200" />
+                   </div>
+                </div>
               </div>
             </div>
           </div>

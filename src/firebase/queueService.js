@@ -466,9 +466,13 @@ export async function updateVideoNote(id, note) {
   await updateDoc(doc(playlistRef, id), { note });
 }
 
-export async function setCurrentVideoState(index) {
+export async function updateDashboardSettings(updates) {
   const ref = doc(db, 'settings', 'dashboard');
-  await setDoc(ref, { currentVideoIndex: index }, { merge: true });
+  await setDoc(ref, updates, { merge: true });
+}
+
+export async function setCurrentVideoState(index) {
+  await updateDashboardSettings({ currentVideoIndex: index });
 }
 
 export function listenDashboardSettings(callback) {

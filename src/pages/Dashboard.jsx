@@ -52,7 +52,7 @@ export default function Dashboard() {
   const [tables, setTables] = useState([]);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [playlist, setPlaylist] = useState([]);
-  const [currentVideoIndex, setCurrentVideoIndex] = useState(0);
+  const [dashboardSettings, setDashboardSettings] = useState({ currentVideoIndex: 0, videoRatio: 55 });
   const [audioFiles, setAudioFiles] = useState({});
 
   const audioFilesRef = useRef({});
@@ -64,7 +64,7 @@ export default function Dashboard() {
   // Keep refs in sync
   useEffect(() => { audioFilesRef.current = audioFiles; }, [audioFiles]);
   useEffect(() => { playlistRef.current = playlist; }, [playlist]);
-  useEffect(() => { currentIdxRef.current = currentVideoIndex; }, [currentVideoIndex]);
+  useEffect(() => { currentIdxRef.current = dashboardSettings.currentVideoIndex; }, [dashboardSettings.currentVideoIndex]);
 
   // Clock
   useEffect(() => {
@@ -78,8 +78,8 @@ export default function Dashboard() {
     const u2 = listenTables(setTables);
     const u3 = listenPlaylist(setPlaylist);
     const u4 = listenDashboardSettings((data) => {
-      if (data && typeof data.currentVideoIndex === 'number') {
-        setCurrentVideoIndex(data.currentVideoIndex);
+      if (data) {
+        setDashboardSettings(prev => ({ ...prev, ...data }));
       }
     });
     const u5 = listenAudioFiles(setAudioFiles);
@@ -230,7 +230,7 @@ export default function Dashboard() {
   const visiblePlaylist = playlist.filter(v => !v.isHidden);
   const currentItem = (() => {
     if (playlist.length === 0) return null;
-    const item = playlist[currentVideoIndex];
+    const item = playlist[dashboardSettings.currentVideoIndex];
     if (!item || item.isHidden) {
       return visiblePlaylist[0] || null;
     }
@@ -239,6 +239,9 @@ export default function Dashboard() {
 
   const embedSrc = currentItem ? buildEmbedSrc(currentItem.url) : null;
   const vertical = currentItem?.isVertical || isVerticalVideo(currentItem?.url);
+
+  const videoRatio = dashboardSettings.videoRatio || 55;
+  const queueRatio = 100 - videoRatio;
 
   return (
     <div className="h-screen bg-slate-50 flex flex-col overflow-hidden text-slate-900 font-['Sarabun']">
@@ -298,7 +301,10 @@ export default function Dashboard() {
 
       <div className="h-[85vh] flex flex-col md:flex-row p-4 md:p-8 gap-4 md:gap-8 relative overflow-hidden">
         {/* Video Section */}
-        <div className="w-full md:w-[55%] h-full flex items-center justify-center relative pointer-events-none">
+        <div 
+          className="w-full h-full flex items-center justify-center relative pointer-events-none transition-all duration-500"
+          style={{ width: `calc(${videoRatio}% - 1rem)` }}
+        >
           <div className={`bg-black rounded-[2rem] md:rounded-[3.5rem] overflow-hidden shadow-2xl transition-all duration-700 ${
             vertical ? 'h-full aspect-[9/16]' : 'w-full aspect-video max-h-full'
           }`}>
@@ -306,7 +312,7 @@ export default function Dashboard() {
               /* Single stable iframe - src changes on index change, no DOM removal */
               <iframe
                 ref={iframeRef}
-                key={currentVideoIndex}     /* force reload when index changes */
+                key={dashboardSettings.currentVideoIndex}     /* force reload when index changes */
                 src={embedSrc}
                 title="Dashboard Video Player"
                 className={`w-full h-full border-none transition-transform duration-700 ${vertical ? 'scale-[1.05] md:scale-[1.18]' : ''}`}
@@ -326,7 +332,10 @@ export default function Dashboard() {
         </div>
 
         {/* Queue Cards */}
-        <div className="w-full md:w-[45%] h-full flex flex-col overflow-hidden">
+        <div 
+          className="w-full h-full flex flex-col overflow-hidden transition-all duration-500"
+          style={{ width: `calc(${queueRatio}% - 1rem)` }}
+        >
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6 h-full p-2 overflow-y-auto custom-scrollbar">
             {tables.map((table) => (
               <CompactQueueCard
