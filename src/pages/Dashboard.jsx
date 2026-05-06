@@ -178,10 +178,17 @@ export default function Dashboard() {
 
   const speak = useCallback((number, tableNumber) => {
     const af = audioFilesRef.current;
+    const prefix = number.charAt(0).toLowerCase(); // q, c, or t
     const qDigits = number.replace(/[^0-9]/g, '').split('');
     const tDigits = String(tableNumber).split('');
+    
+    let prefixAudio = af.letter_q;
+    if (prefix === 'c') prefixAudio = af.letter_c;
+    if (prefix === 't') prefixAudio = af.letter_t;
+
     const urls = [
-      af.phrase_invite, af.letter_q,
+      af.phrase_invite, 
+      prefixAudio,
       ...qDigits.map(d => af[`digit_${d}`]),
       af.phrase_counter,
       ...tDigits.map(d => af[`digit_${d}`]),
