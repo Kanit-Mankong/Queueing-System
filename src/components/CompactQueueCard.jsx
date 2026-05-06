@@ -55,7 +55,7 @@ export default function CompactQueueCard({ tableNumber, currentQueue, previousQu
 
       {/* Header */}
       <div className="flex items-center justify-between mb-1 md:mb-2 relative z-10">
-        <h3 className={`text-[12px] md:text-2xl lg:text-3xl font-black tracking-tight whitespace-nowrap ${
+        <h3 className={`text-[16px] md:text-3xl lg:text-4xl font-black tracking-tight whitespace-nowrap ${
           !isIdle ? 'text-white' : 'text-slate-800'
         }`}>
           ช่องบริการ {tableNumber}
@@ -70,7 +70,7 @@ export default function CompactQueueCard({ tableNumber, currentQueue, previousQu
             className="px-2 py-0.5 md:px-3 md:py-1 rounded-full border border-white/30 backdrop-blur-md flex items-center gap-1.5"
           >
             <span className="w-1.5 h-1.5 md:w-2 md:h-2 bg-white rounded-full animate-pulse" />
-            <span className="text-[7px] md:text-[10px] font-black text-white uppercase tracking-widest">
+            <span className="text-[10px] md:text-xl font-black text-white uppercase tracking-widest">
               {isCash ? 'เงินสด' : 'เงินโอน'}
             </span>
           </motion.div>
@@ -92,7 +92,7 @@ export default function CompactQueueCard({ tableNumber, currentQueue, previousQu
               <div className="text-[12vmin] md:text-7xl lg:text-8xl font-black tracking-tighter leading-none text-white drop-shadow-2xl">
                 {currentQueue.number}
               </div>
-              <div className={`text-[8px] md:text-xs font-black uppercase tracking-[0.2em] mt-1 ${secondaryColor}`}>
+              <div className={`text-[12px] md:text-3xl font-black uppercase tracking-[0.2em] mt-2 ${secondaryColor}`}>
                 {isCash ? 'ชำระเงินสด' : 'โอนเงิน'}
               </div>
             </motion.div>
