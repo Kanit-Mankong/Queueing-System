@@ -140,7 +140,7 @@ export default function Kiosk() {
     setIsPrinting(true);
     
     setTimeout(() => {
-      const typeLabel = ticket.paymentType === 'CASH' ? 'โต๊ะเงินสด' : 'โต๊ะเงินโอน';
+      const typeLabel = ticket.paymentType === 'CASH' ? 'ช่องเงินสด' : 'ช่องเงินโอน';
       const dateStr = new Date().toLocaleString('th-TH');
 
       if (printConfig.mode === 'sunmi') {
@@ -278,7 +278,7 @@ export default function Kiosk() {
                   <span>|</span>
                 </>
               )}
-              <span>{ticket.paymentType === 'CASH' ? 'โต๊ะเงินสด' : 'โต๊ะเงินโอน'}</span>
+              <span>{ticket.paymentType === 'CASH' ? 'ช่องเงินสด' : 'ช่องเงินโอน'}</span>
             </div>
 
 
