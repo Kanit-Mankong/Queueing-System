@@ -370,6 +370,7 @@ export default function Settings() {
             <div>
               <h2 className="text-xl md:text-2xl font-black text-slate-800">จัดการโต๊ะบริการ</h2>
               <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">เพิ่มหรือแก้ไขรายละเอียดของแต่ละช่องบริการ</p>
+            </div>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
 

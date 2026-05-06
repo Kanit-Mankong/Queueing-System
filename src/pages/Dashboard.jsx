@@ -327,6 +327,7 @@ export default function Dashboard() {
                 tableNumber={table.tableNumber}
                 currentQueue={getTableQueue(table.tableNumber)}
                 previousQueue={getTableHistory(table.tableNumber)}
+                tableType={table.type}
               />
             ))}
           </div>

@@ -1,8 +1,17 @@
 // src/components/CompactQueueCard.jsx
 import { motion, AnimatePresence } from 'framer-motion';
 
-export default function CompactQueueCard({ tableNumber, currentQueue, previousQueue }) {
+export default function CompactQueueCard({ tableNumber, currentQueue, previousQueue, tableType }) {
   const isIdle = !currentQueue;
+  
+  // Color logic based on tableType
+  const isCash = tableType === 'CASH';
+  const colorClasses = isCash 
+    ? 'bg-gradient-to-br from-emerald-600 via-emerald-500 to-teal-600 border-emerald-300'
+    : 'bg-gradient-to-br from-blue-600 via-blue-500 to-indigo-600 border-blue-300';
+    
+  const glowColor = isCash ? 'rgba(16, 185, 129, 0.6)' : 'rgba(59, 130, 246, 0.6)';
+  const secondaryColor = isCash ? 'text-emerald-100' : 'text-blue-100';
 
   return (
     <motion.div 
@@ -13,9 +22,9 @@ export default function CompactQueueCard({ tableNumber, currentQueue, previousQu
         opacity: 1,
         filter: ['brightness(1.5)', 'brightness(1)', 'brightness(1.1)', 'brightness(1)'],
         boxShadow: [
-          '0 0 20px rgba(59, 130, 246, 0.3)',
-          '0 0 40px rgba(59, 130, 246, 0.6)',
-          '0 0 20px rgba(59, 130, 246, 0.3)'
+          `0 0 20px ${glowColor.replace('0.6', '0.3')}`,
+          `0 0 40px ${glowColor}`,
+          `0 0 20px ${glowColor.replace('0.6', '0.3')}`
         ]
       } : { opacity: 1, scale: 1 }}
       transition={!isIdle ? {
@@ -25,7 +34,7 @@ export default function CompactQueueCard({ tableNumber, currentQueue, previousQu
       } : { duration: 0.5 }}
       className={`rounded-[1.5rem] md:rounded-[2rem] p-3 md:p-5 flex flex-col transition-all duration-500 h-full border relative overflow-hidden ${
         !isIdle 
-          ? 'bg-gradient-to-br from-blue-600 via-blue-500 to-indigo-600 border-blue-300 z-50' 
+          ? `${colorClasses} z-50` 
           : 'bg-white border-slate-100 z-10'
       }`}
     >
@@ -61,7 +70,9 @@ export default function CompactQueueCard({ tableNumber, currentQueue, previousQu
             className="px-2 py-0.5 md:px-3 md:py-1 rounded-full border border-white/30 backdrop-blur-md flex items-center gap-1.5"
           >
             <span className="w-1.5 h-1.5 md:w-2 md:h-2 bg-white rounded-full animate-pulse" />
-            <span className="text-[7px] md:text-[10px] font-black text-white uppercase tracking-widest">กำลังเรียก</span>
+            <span className="text-[7px] md:text-[10px] font-black text-white uppercase tracking-widest">
+              {isCash ? 'เงินสด' : 'เงินโอน'}
+            </span>
           </motion.div>
         )}
       </div>
@@ -81,8 +92,8 @@ export default function CompactQueueCard({ tableNumber, currentQueue, previousQu
               <div className="text-[12vmin] md:text-7xl lg:text-8xl font-black tracking-tighter leading-none text-white drop-shadow-2xl">
                 {currentQueue.number}
               </div>
-              <div className="text-[8px] md:text-xs font-black text-blue-100 uppercase tracking-[0.2em] mt-1">
-                กำลังเรียก
+              <div className={`text-[8px] md:text-xs font-black uppercase tracking-[0.2em] mt-1 ${secondaryColor}`}>
+                {isCash ? 'ชำระเงินสด' : 'โอนเงิน'}
               </div>
             </motion.div>
           ) : (
@@ -106,7 +117,7 @@ export default function CompactQueueCard({ tableNumber, currentQueue, previousQu
         !isIdle ? 'border-white/20' : 'border-slate-100'
       }`}>
         <span className={`text-[7px] md:text-[9px] font-black uppercase tracking-widest ${
-          !isIdle ? 'text-blue-100/60' : 'text-slate-400'
+          !isIdle ? `${secondaryColor}/60` : 'text-slate-400'
         }`}>คิวก่อนหน้า (History)</span>
         <div className="flex items-center gap-2">
           {previousQueue ? (
@@ -115,7 +126,7 @@ export default function CompactQueueCard({ tableNumber, currentQueue, previousQu
             }`}>{previousQueue.number}</span>
           ) : (
             <span className={`text-[8px] md:text-xs font-bold italic ${
-              !isIdle ? 'text-blue-100/30' : 'text-slate-200'
+              !isIdle ? `${secondaryColor}/30` : 'text-slate-200'
             }`}>ไม่มีข้อมูล</span>
           )}
         </div>
